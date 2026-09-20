@@ -10,7 +10,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, Command, Stdio};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use tauri::{AppHandle, Emitter, State};
 
 #[derive(Default)]
@@ -31,39 +31,66 @@ struct Progress {
     text: String,
 }
 
+/// Where `claude` lives, and the PATH it needs to run.
+struct Env {
+    claude: Option<String>,
+    path: Option<String>,
+}
+
 /// A GUI app on macOS does not inherit the terminal's PATH, so `claude` installed
-/// by npm, Homebrew or the native installer is usually invisible to it. Ask a
-/// login shell where it is, then fall back to the usual places.
-fn find_claude() -> Option<String> {
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
-    if let Ok(out) = Command::new(&shell).args(["-lic", "command -v claude"]).output() {
-        let found = String::from_utf8_lossy(&out.stdout);
-        if let Some(line) = found.lines().rev().find(|l| l.starts_with('/')) {
-            return Some(line.trim().to_string());
+/// by npm, Homebrew or the native installer is usually invisible to it. A login
+/// shell knows, but starting one loads the person's whole shell profile and takes
+/// a second or more. So it is asked once, for both answers, and remembered.
+fn env() -> &'static Env {
+    static ENV: OnceLock<Env> = OnceLock::new();
+    ENV.get_or_init(|| {
+        let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
+        let (mut claude, mut path) = (None, None);
+        if let Ok(out) = Command::new(&shell)
+            .args(["-lic", "echo __PATH__$PATH; echo __CLAUDE__$(command -v claude)"])
+            .output()
+        {
+            for line in String::from_utf8_lossy(&out.stdout).lines() {
+                if let Some(p) = line.strip_prefix("__PATH__") {
+                    path = Some(p.to_string());
+                } else if let Some(c) = line.strip_prefix("__CLAUDE__") {
+                    if c.starts_with('/') {
+                        claude = Some(c.trim().to_string());
+                    }
+                }
+            }
         }
-    }
-    let home = std::env::var("HOME").unwrap_or_default();
-    [
-        format!("{home}/.claude/local/claude"),
-        format!("{home}/.local/bin/claude"),
-        "/opt/homebrew/bin/claude".into(),
-        "/usr/local/bin/claude".into(),
-    ]
-    .into_iter()
-    .find(|p| std::path::Path::new(p).exists())
+        if claude.is_none() {
+            let home = std::env::var("HOME").unwrap_or_default();
+            claude = [
+                format!("{home}/.claude/local/claude"),
+                format!("{home}/.local/bin/claude"),
+                "/opt/homebrew/bin/claude".into(),
+                "/usr/local/bin/claude".into(),
+            ]
+            .into_iter()
+            .find(|p| std::path::Path::new(p).exists());
+        }
+        Env { claude, path }
+    })
 }
 
-/// The child needs node and friends on PATH too, so give it the login shell's.
+/// Pay for the login shell at launch, in the background, so no screen waits on it.
+pub fn warm_up() {
+    std::thread::spawn(|| {
+        env();
+    });
+}
+
+fn find_claude() -> Option<String> {
+    env().claude.clone()
+}
+
 fn login_path() -> Option<String> {
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
-    let out = Command::new(shell).args(["-lic", "echo __PATH__$PATH"]).output().ok()?;
-    String::from_utf8_lossy(&out.stdout)
-        .lines()
-        .find_map(|l| l.strip_prefix("__PATH__").map(str::to_string))
+    env().path.clone()
 }
 
-#[tauri::command]
-pub fn ai_status() -> AiStatus {
+fn status_blocking() -> AiStatus {
     let Some(path) = find_claude() else {
         return AiStatus { installed: false, logged_in: None, account: None, path: None };
     };
@@ -88,6 +115,15 @@ pub fn ai_status() -> AiStatus {
     AiStatus { installed: true, logged_in, account, path: Some(path) }
 }
 
+/// Async on purpose. A plain `fn` command runs on the main thread, and this one
+/// starts processes: as a sync command it froze the whole window while it waited.
+#[tauri::command]
+pub async fn ai_status() -> Result<AiStatus, String> {
+    tauri::async_runtime::spawn_blocking(status_blocking)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// One research turn. Emits `ai://progress` as searches happen and resolves with
 /// the schema-shaped object the CLI returns in `structured_output`.
 #[tauri::command]
@@ -101,7 +137,10 @@ pub async fn ai_run(
     max_turns: Option<u32>,
     web: Option<bool>,
 ) -> Result<Value, String> {
-    let path = find_claude().ok_or("Claude Code isn't installed on this Mac.")?;
+    let path = tauri::async_runtime::spawn_blocking(find_claude)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or("Claude Code isn't installed on this Mac.")?;
     let scratch = std::env::temp_dir().join("my-roadmaps-ai");
     std::fs::create_dir_all(&scratch).map_err(|e| e.to_string())?;
 
