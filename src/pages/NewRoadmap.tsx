@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { aiStatus, cancelAi, createPrompt, newKey, revisePrompt, runResearch, type AiProgress, type AiStatus } from '../lib/ai'
-import { saveDraft } from '../lib/db'
+import { loadSettings, saveDraft } from '../lib/db'
 import { go } from '../lib/router'
 import { IMPORTANCE_LABEL, KIND_LABEL, type Draft, type DraftStage } from '../lib/types'
 import { openExternal } from '../lib/platform'
@@ -17,6 +17,7 @@ export function NewRoadmap({ onError }: { onError: (m: string) => void }) {
   const [background, setBackground] = useState('')
   const [deep, setDeep] = useState(false)
   const [model, setModel] = useState('')
+  useEffect(() => { loadSettings().then((x) => setModel(x.ai_model)).catch(() => undefined) }, [])
   const [job, setJob] = useState<string | null>(null)
   const [log, setLog] = useState<AiProgress[]>([])
   const [ask, setAsk] = useState('')
@@ -91,14 +92,7 @@ export function NewRoadmap({ onError }: { onError: (m: string) => void }) {
             <input type="checkbox" checked={deep} onChange={(e) => setDeep(e.target.checked)} />
             <span><strong>Deep research.</strong> Compares more candidates and opens them to check they're current. Slower, and uses more of your Claude plan's allowance.</span>
           </label>
-          <label className="field">
-            <span>Model</span>
-            <select className="input" value={model} onChange={(e) => setModel(e.target.value)}>
-              <option value="">Your Claude Code default</option>
-              <option value="sonnet">Sonnet (faster, lighter on your allowance)</option>
-              <option value="opus">Opus (most thorough)</option>
-            </select>
-          </label>
+          <p className="empty" style={{ marginBottom: 12 }}>Model: <strong>{model || 'your Claude Code default'}</strong>. <button type="button" className="linkish" style={{ display: 'inline', minHeight: 0 }} onClick={() => go({ page: 'account' })}>Change in Account</button></p>
           <AiBadge status={status} />
           <div className="dialog__actions">
             <button type="submit" className="btn" disabled={!ready}>Research it</button>

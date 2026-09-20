@@ -12,6 +12,8 @@ how far along you are. Grown out of `../AI-Roadmap`.
 | Browse roadmaps, dashboard, stats | yes | yes |
 | Change status, notes, links, files, archive, move, delete | yes | no, read-only |
 | Create a roadmap with AI research | yes | no |
+| "This week" focus card | generates it (button, and daily at a set time) | shows the latest one |
+| Account: model, daily refresh time | editable | shown, read-only |
 | AI configuration | the Claude Code CLI on this Mac | none at all |
 
 `src/lib/platform.ts` is the switch: `canEdit` is true only inside Tauri.
@@ -30,6 +32,20 @@ schema (`--json-schema`). What comes back is still cleaned in
 http(s) urls only, one main resource per topic.
 
 Nothing is saved until you review the draft and press **Save roadmap**.
+
+### The "This week" card
+
+A second, much smaller CLI turn with **no tools at all** (about ten seconds). It
+gets a summary built in `src/lib/briefing.ts`: what is in progress and for how
+long, what was finished in the last 30 days, which resources cover the most
+in-progress or completed topics, and the next few to-dos per roadmap. It never
+sees your notes or files. It answers with one to three things to do this week
+and up to three notes on what to leave alone.
+
+There is no server to run a cron job on, so the daily refresh (default 08:00,
+set in Account) is done by the desktop app: it checks on open and every five
+minutes, and regenerates the first time it finds the scheduled time has passed.
+If the Mac was off at 8, you get it when you next open the app.
 
 Later, if you want research on the web too, that is the point to add a server
 with an Anthropic API key. Nothing here needs to change for that.
@@ -89,8 +105,10 @@ Nothing here bills by overage, and no card is on file.
 | `resources` | Where to learn it: kind, provider, url, cost, duration, plus the same status/archive/notes |
 | `topic_resources` | Which resource covers which topic; one per topic is the main one |
 | `item_links`, `item_files` | Extra links and attachments on a topic or resource |
+| `user_settings` | Model choice, and whether and when the weekly focus refreshes |
+| `briefings` | The latest "This week" card, one per person |
 
-Schema: `supabase/migrations/0001_my_roadmaps.sql`.
+Schema: `supabase/migrations/`.
 
 ## Hand-off notes
 

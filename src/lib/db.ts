@@ -19,19 +19,54 @@ const uuid = () => crypto.randomUUID()
 
 export interface DashboardData {
   roadmaps: Roadmap[]
-  topics: Pick<Topic, 'id' | 'roadmap_id' | 'title' | 'status' | 'status_changed_at' | 'archived_at'>[]
-  resources: Pick<Resource, 'id' | 'roadmap_id' | 'title' | 'status' | 'archived_at' | 'url' | 'kind' | 'provider'>[]
+  stages: Pick<StageRow, 'id' | 'roadmap_id' | 'position'>[]
+  topics: Pick<Topic, 'id' | 'roadmap_id' | 'stage_id' | 'title' | 'importance' | 'status' | 'status_changed_at' | 'archived_at' | 'position'>[]
+  resources: Pick<Resource, 'id' | 'roadmap_id' | 'title' | 'status' | 'status_changed_at' | 'archived_at' | 'url' | 'kind' | 'provider'>[]
   links: TopicResource[]
 }
 
 export async function loadDashboard(): Promise<DashboardData> {
-  const [roadmaps, topics, resources, links] = await Promise.all([
+  const [roadmaps, stages, topics, resources, links] = await Promise.all([
     db().from('roadmaps').select('*').neq('state', 'archived').order('created_at', { ascending: false }),
-    db().from('topics').select('id,roadmap_id,title,status,status_changed_at,archived_at'),
-    db().from('resources').select('id,roadmap_id,title,status,archived_at,url,kind,provider'),
+    db().from('stages').select('id,roadmap_id,position'),
+    db().from('topics').select('id,roadmap_id,stage_id,title,importance,status,status_changed_at,archived_at,position'),
+    db().from('resources').select('id,roadmap_id,title,status,status_changed_at,archived_at,url,kind,provider'),
     db().from('topic_resources').select('topic_id,resource_id,is_primary'),
   ])
-  return { roadmaps: must(roadmaps), topics: must(topics), resources: must(resources), links: must(links) }
+  return { roadmaps: must(roadmaps), stages: must(stages), topics: must(topics), resources: must(resources), links: must(links) }
+}
+
+/* --------------------------------------------------- settings, briefing -- */
+
+export interface Settings {
+  ai_model: string
+  briefing_enabled: boolean
+  /** Local time, "HH:MM". */
+  briefing_time: string
+}
+export const DEFAULT_SETTINGS: Settings = { ai_model: '', briefing_enabled: true, briefing_time: '08:00' }
+
+export async function loadSettings(): Promise<Settings> {
+  const row = must(await db().from('user_settings').select('ai_model,briefing_enabled,briefing_time').maybeSingle()) as Settings | null
+  return row ?? DEFAULT_SETTINGS
+}
+export async function saveSettings(s: Settings) {
+  const { data } = await db().auth.getUser()
+  if (!data.user) throw new Error('Sign in first.')
+  must(await db().from('user_settings').upsert({ user_id: data.user.id, ...s, updated_at: new Date().toISOString() }).select('user_id'))
+}
+
+export interface FocusItem { title: string; why: string; item_id: string }
+export interface BriefingContent { headline: string; focus: FocusItem[]; notes: string[] }
+export interface Briefing { content: BriefingContent; model: string; generated_at: string }
+
+export async function loadBriefing(): Promise<Briefing | null> {
+  return must(await db().from('briefings').select('content,model,generated_at').maybeSingle()) as Briefing | null
+}
+export async function saveBriefing(content: BriefingContent, model: string) {
+  const { data } = await db().auth.getUser()
+  if (!data.user) throw new Error('Sign in first.')
+  must(await db().from('briefings').upsert({ user_id: data.user.id, content, model, generated_at: new Date().toISOString() }).select('user_id'))
 }
 
 /* ---------------------------------------------------------------- roadmap -- */

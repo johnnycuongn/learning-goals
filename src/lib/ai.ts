@@ -126,29 +126,35 @@ export async function cancelAi(job: string) {
   await invoke('ai_cancel', { job })
 }
 
+/** One CLI turn that must answer in `schema`. `web` decides whether it may search. */
+export async function runAi<T>(
+  job: string,
+  prompt: string,
+  schema: object,
+  opts: { model: string; maxTurns: number; web: boolean },
+  onProgress?: (p: AiProgress) => void,
+): Promise<T> {
+  const { invoke } = await import('@tauri-apps/api/core')
+  const { listen } = await import('@tauri-apps/api/event')
+  const stop = await listen<AiProgress>('ai://progress', (e) => {
+    if (e.payload.job === job) onProgress?.(e.payload)
+  })
+  try {
+    return await invoke<T>('ai_run', {
+      job, prompt, schema: JSON.stringify(schema), model: opts.model || null, maxTurns: opts.maxTurns, web: opts.web,
+    })
+  } finally {
+    stop()
+  }
+}
+
 export async function runResearch(
   job: string,
   prompt: string,
   opts: { deep: boolean; model: string },
   onProgress: (p: AiProgress) => void,
 ): Promise<Draft> {
-  const { invoke } = await import('@tauri-apps/api/core')
-  const { listen } = await import('@tauri-apps/api/event')
-  const stop = await listen<AiProgress>('ai://progress', (e) => {
-    if (e.payload.job === job) onProgress(e.payload)
-  })
-  try {
-    const raw = await invoke<unknown>('ai_run', {
-      job,
-      prompt,
-      schema: JSON.stringify(SCHEMA),
-      model: opts.model || null,
-      maxTurns: opts.deep ? 90 : 40,
-    })
-    return normalise(raw)
-  } finally {
-    stop()
-  }
+  return normalise(await runAi<unknown>(job, prompt, SCHEMA, { model: opts.model, maxTurns: opts.deep ? 90 : 40, web: true }, onProgress))
 }
 
 /* -------------------------------------------------------------- normalise -- */

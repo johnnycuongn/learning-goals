@@ -4,11 +4,13 @@ import type { View } from './types'
 export type Route =
   | { page: 'home' }
   | { page: 'new' }
+  | { page: 'account' }
   | { page: 'roadmap'; id: string; view: View; target: string | null }
 
 export function parse(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean)
   if (parts[0] === 'new') return { page: 'new' }
+  if (parts[0] === 'account') return { page: 'account' }
   if (parts[0] === 'r' && parts[1]) {
     return {
       page: 'roadmap',
@@ -22,6 +24,7 @@ export function parse(hash: string): Route {
 
 export function format(r: Route): string {
   if (r.page === 'new') return '#/new'
+  if (r.page === 'account') return '#/account'
   if (r.page === 'roadmap') return `#/r/${r.id}/${r.view}${r.target ? `/${r.target}` : ''}`
   return '#/'
 }

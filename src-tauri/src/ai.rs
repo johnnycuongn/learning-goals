@@ -99,17 +99,20 @@ pub async fn ai_run(
     schema: String,
     model: Option<String>,
     max_turns: Option<u32>,
+    web: Option<bool>,
 ) -> Result<Value, String> {
     let path = find_claude().ok_or("Claude Code isn't installed on this Mac.")?;
     let scratch = std::env::temp_dir().join("my-roadmaps-ai");
     std::fs::create_dir_all(&scratch).map_err(|e| e.to_string())?;
 
+    let tools = if web.unwrap_or(true) { "WebSearch,WebFetch" } else { "" };
     let mut cmd = Command::new(&path);
     cmd.current_dir(&scratch)
         .args(["-p", "--output-format", "stream-json", "--verbose"])
-        // The whole safety story: these two tools and nothing else.
-        .args(["--tools", "WebSearch,WebFetch"])
-        .args(["--allowed-tools", "WebSearch,WebFetch"])
+        // The whole safety story: web reading for research, and for anything
+        // else (the weekly briefing) no tools at all.
+        .args(["--tools", tools])
+        .args(["--allowed-tools", tools])
         .args(["--max-turns", &max_turns.unwrap_or(40).to_string()])
         .args(["--settings", r#"{"disableAllHooks":true}"#])
         .args(["--strict-mcp-config", "--mcp-config", r#"{"mcpServers":{}}"#])

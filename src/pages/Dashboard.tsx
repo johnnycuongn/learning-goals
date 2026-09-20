@@ -4,6 +4,7 @@ import { progressOf } from '../lib/buildLayout'
 import { canEdit, openExternal } from '../lib/platform'
 import { go } from '../lib/router'
 import { KIND_LABEL } from '../lib/types'
+import { BriefingCard } from '../components/BriefingCard'
 
 export function Dashboard({ onError }: { onError: (m: string) => void }) {
   const [data, setData] = useState<DashboardData | null>(null)
@@ -22,20 +23,29 @@ export function Dashboard({ onError }: { onError: (m: string) => void }) {
       resources: progressOf(data.resources.filter((x) => x.roadmap_id === r.id)),
     }))
     const resourceById = new Map(data.resources.map((r) => [r.id, r]))
-    const recent = topics
+    const roadmapById = new Map(data.roadmaps.map((r) => [r.id, r]))
+    const newest = (a: { status_changed_at: string | null }, b: { status_changed_at: string | null }) =>
+      (b.status_changed_at ?? '').localeCompare(a.status_changed_at ?? '')
+    const inProgressTopics = topics
       .filter((t) => t.status === 'in_progress' && !t.archived_at)
-      .sort((a, b) => (b.status_changed_at ?? '').localeCompare(a.status_changed_at ?? ''))
-      .slice(0, 8)
+      .sort(newest)
       .map((t) => ({
         topic: t,
-        roadmap: data.roadmaps.find((r) => r.id === t.roadmap_id)!,
+        roadmap: roadmapById.get(t.roadmap_id)!,
         refs: data.links
           .filter((l) => l.topic_id === t.id)
           .sort((a, b) => Number(b.is_primary) - Number(a.is_primary))
           .map((l) => ({ ...l, resource: resourceById.get(l.resource_id) }))
           .filter((l) => l.resource && !l.resource.archived_at),
       }))
-    return { cards, recent, overall: progressOf(topics) }
+    const inProgressResources = data.resources
+      .filter((r) => live.has(r.roadmap_id) && r.status === 'in_progress' && !r.archived_at)
+      .sort(newest)
+      .map((r) => ({ resource: r, roadmap: roadmapById.get(r.roadmap_id)! }))
+    const where = new Map<string, { roadmap: string; view: 'topics' | 'resources' }>()
+    for (const t of topics) where.set(t.id, { roadmap: t.roadmap_id, view: 'topics' })
+    for (const r of data.resources) if (live.has(r.roadmap_id)) where.set(r.id, { roadmap: r.roadmap_id, view: 'resources' })
+    return { cards, inProgressTopics, inProgressResources, where, overall: progressOf(topics) }
   }, [data])
 
   return (
@@ -48,6 +58,15 @@ export function Dashboard({ onError }: { onError: (m: string) => void }) {
         {!view && <p className="empty">Loading…</p>}
         {view && (
           <>
+            <BriefingCard
+              hasRoadmaps={view.cards.length > 0}
+              onError={onError}
+              locate={(itemId) => {
+                const w = view.where.get(itemId)
+                return w ? () => go({ page: 'roadmap', id: w.roadmap, view: w.view, target: itemId }) : null
+              }}
+            />
+
             <div className="stats">
               <Stat n={view.cards.length} label="roadmaps" />
               <Stat n={`${view.overall.pct}%`} label="of all topics done" />
@@ -88,15 +107,15 @@ export function Dashboard({ onError }: { onError: (m: string) => void }) {
               ))}
             </div>
 
-            {view.recent.length > 0 && (
+            {(view.inProgressTopics.length > 0 || view.inProgressResources.length > 0) && (
               <section>
-                <h2 className="h2">Recently started</h2>
+                <h2 className="h2">In progress ({view.inProgressTopics.length + view.inProgressResources.length})</h2>
                 <ul className="recent">
-                  {view.recent.map(({ topic, roadmap, refs }) => (
+                  {view.inProgressTopics.map(({ topic, roadmap, refs }) => (
                     <li key={topic.id} className="card">
                       <button type="button" className="recent__topic" onClick={() => go({ page: 'roadmap', id: roadmap.id, view: 'topics', target: topic.id })}>
                         <strong>{topic.title}</strong>
-                        <span className="linklist__sub">{roadmap.title}{topic.status_changed_at ? ` · started ${new Date(topic.status_changed_at).toLocaleDateString()}` : ''}</span>
+                        <span className="linklist__sub">Topic · {roadmap.title}{started(topic.status_changed_at)}</span>
                       </button>
                       <div className="recent__refs">
                         {refs.length === 0 && <span className="empty">No resources linked.</span>}
@@ -109,6 +128,19 @@ export function Dashboard({ onError }: { onError: (m: string) => void }) {
                       </div>
                     </li>
                   ))}
+                  {view.inProgressResources.map(({ resource, roadmap }) => (
+                    <li key={resource.id} className="card">
+                      <button type="button" className="recent__topic" onClick={() => go({ page: 'roadmap', id: roadmap.id, view: 'resources', target: resource.id })}>
+                        <strong>{resource.title}</strong>
+                        <span className="linklist__sub">{KIND_LABEL[resource.kind]}{resource.provider ? ` · ${resource.provider}` : ''} · {roadmap.title}{started(resource.status_changed_at)}</span>
+                      </button>
+                      {resource.url && (
+                        <div className="recent__refs">
+                          <button type="button" className="chip" onClick={() => void openExternal(resource.url!)}>Open<span className="chip__kind">↗</span></button>
+                        </div>
+                      )}
+                    </li>
+                  ))}
                 </ul>
               </section>
             )}
@@ -118,6 +150,8 @@ export function Dashboard({ onError }: { onError: (m: string) => void }) {
     </div>
   )
 }
+
+const started = (iso: string | null) => (iso ? ` · started ${new Date(iso).toLocaleDateString([], { day: 'numeric', month: 'short' })}` : '')
 
 function Stat({ n, label, tone }: { n: number | string; label: string; tone?: 'prog' | 'done' }) {
   return <div className="stat" data-tone={tone}><span className="stat__n">{n}</span><span className="stat__l">{label}</span></div>

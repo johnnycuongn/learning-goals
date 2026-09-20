@@ -119,3 +119,27 @@ select.mini { max-width: 170px; }
   left: max(12px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom));
 }
 .corner .iconbtn { background: var(--chrome); box-shadow: var(--shadow-sm); }
+
+/* "This week": the one card meant to be read first, so it gets the accent. */
+.briefing {
+  border: 2px solid var(--ink); border-radius: 14px; padding: 16px;
+  background: var(--sub); color: var(--sub-text); box-shadow: var(--shadow-sm); min-width: 0;
+}
+.briefing__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.briefing__head .iconbtn { background: var(--panel); border-color: var(--ink); color: var(--ink); white-space: nowrap; }
+.briefing__title { font-family: var(--font-canvas); font-size: 20px; margin: 0; line-height: 1.2; }
+.briefing__when { margin: 2px 0 0; font-size: 12px; opacity: .8; }
+.briefing__headline { margin: 12px 0 8px; font-size: 15.5px; font-weight: 600; }
+.briefing__focus { margin: 0; padding-left: 20px; display: grid; gap: 10px; }
+.briefing__focus li::marker { color: var(--mk-rec); font-size: 1.2em; }
+.briefing__link {
+  display: block; background: none; border: 0; padding: 12px 0; margin: -12px 0 -10px; color: inherit; font-weight: 700; font-size: 15px;
+  text-align: left; text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 3px;
+}
+.briefing__focus strong { font-size: 15px; }
+.briefing__why { display: block; font-size: 13.5px; opacity: .88; margin-top: 2px; }
+.briefing__notes { margin: 12px 0 0; padding: 10px 0 0 20px; border-top: 1px dashed currentColor; font-size: 13px; opacity: .88; display: grid; gap: 4px; }
+.briefing .empty { color: inherit; opacity: .85; margin-top: 10px; }
+.spin { display: inline-block; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
