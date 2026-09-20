@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import * as api from '../lib/db'
 import type { ItemTable } from '../lib/db'
 import { byPosition } from '../lib/buildLayout'
-import { canEdit, openExternal } from '../lib/platform'
+import { canEdit as platformCanEdit, openExternal } from '../lib/platform'
 import {
   IMPORTANCE_LABEL, KINDS, KIND_LABEL, STATUS_LABEL, STATUS_ORDER,
   type Bundle, type Importance, type ItemFile, type ItemLink, type Resource, type ResourceKind, type Status, type Topic,
@@ -17,9 +17,13 @@ interface Props {
   /** Re-read the roadmap after a change. */
   onChanged: () => Promise<void>
   onError: (msg: string) => void
+  /** Public share page: nothing editable, nothing private fetched or shown. */
+  shared?: { showStatus: boolean }
 }
 
-export function ItemPanel({ bundle, targetId, onClose, onNavigate, onChanged, onError }: Props) {
+export function ItemPanel({ bundle, targetId, onClose, onNavigate, onChanged, onError, shared }: Props) {
+  const canEdit = platformCanEdit && !shared
+  const showStatus = shared ? shared.showStatus : true
   const topic = bundle.topics.find((t) => t.id === targetId)
   const resource = bundle.resources.find((r) => r.id === targetId)
   const stage = bundle.stages.find((s) => s.id === targetId)
@@ -40,7 +44,7 @@ export function ItemPanel({ bundle, targetId, onClose, onNavigate, onChanged, on
     setEditing(false); setEditNotes(false); setConfirmDelete(false); setAskCover(null)
     setNotes(item?.notes_md ?? '')
     setExtras({ links: [], files: [] })
-    if (item) api.loadExtras(table, item.id).then(setExtras).catch(() => undefined)
+    if (item && !shared) api.loadExtras(table, item.id).then(setExtras).catch(() => undefined)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetId])
 
@@ -77,10 +81,10 @@ export function ItemPanel({ bundle, targetId, onClose, onNavigate, onChanged, on
         {stage.description && <p className="panel__desc">{stage.description}</p>}
         {stage.milestone && <p className="panel__analogy">Milestone: {stage.milestone}</p>}
         <Section title={`Topics (${rows(bundle.topics).length})`}>
-          <RowList items={rows(bundle.topics)} onNavigate={onNavigate} />
+          <RowList items={rows(bundle.topics)} onNavigate={onNavigate} showStatus={showStatus} />
         </Section>
         <Section title={`Resources (${rows(bundle.resources).length})`}>
-          <RowList items={rows(bundle.resources)} onNavigate={onNavigate} />
+          <RowList items={rows(bundle.resources)} onNavigate={onNavigate} showStatus={showStatus} />
         </Section>
       </Shell>
     )
@@ -148,9 +152,9 @@ export function ItemPanel({ bundle, targetId, onClose, onNavigate, onChanged, on
             </button>
           ))}
         </div>
-      ) : (
+      ) : showStatus ? (
         <span className="tag" data-status={it.status}>{STATUS_LABEL[it.status]}</span>
-      )}
+      ) : null}
       {askCover && (
         <div className="notice notice--warn" role="status">
           <p style={{ margin: '0 0 8px', color: 'inherit' }}>Mark the {askCover.length} topic{askCover.length > 1 ? 's' : ''} it covers as done too?</p>
@@ -171,7 +175,7 @@ export function ItemPanel({ bundle, targetId, onClose, onNavigate, onChanged, on
                   {link.is_primary && <span className="pill">Main</span>} {other.title}
                   {'provider' in other && <span className="linklist__sub">{KIND_LABEL[other.kind]}{other.provider ? ` · ${other.provider}` : ''}</span>}
                 </span>
-                <span className="tag" data-status={other.status}>{STATUS_LABEL[other.status]}</span>
+                {showStatus && <span className="tag" data-status={other.status}>{STATUS_LABEL[other.status]}</span>}
               </button>
               {canEdit && (
                 <span className="linkrow__actions">
@@ -200,6 +204,7 @@ export function ItemPanel({ bundle, targetId, onClose, onNavigate, onChanged, on
         )}
       </Section>
 
+      {!shared && (<>
       <Section title="Links">
         <ul className="linklist">
           {extras.links.map((l) => (
@@ -261,6 +266,8 @@ export function ItemPanel({ bundle, targetId, onClose, onNavigate, onChanged, on
           </label>
         )}
       </Section>
+
+      </>)}
 
       {canEdit && (
         <Section title="Organise">
@@ -327,7 +334,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return <section className="panel__section"><h3>{title}</h3>{children}</section>
 }
 
-function RowList({ items, onNavigate }: { items: (Topic | Resource)[]; onNavigate: (id: string) => void }) {
+function RowList({ items, onNavigate, showStatus }: { items: (Topic | Resource)[]; onNavigate: (id: string) => void; showStatus: boolean }) {
   if (!items.length) return <p className="empty">None.</p>
   return (
     <ul className="linklist">
@@ -335,7 +342,7 @@ function RowList({ items, onNavigate }: { items: (Topic | Resource)[]; onNavigat
         <li key={i.id}>
           <button type="button" onClick={() => onNavigate(i.id)}>
             <span className="linklist__title">{i.title}</span>
-            <span className="tag" data-status={i.status}>{STATUS_LABEL[i.status]}</span>
+            {showStatus && <span className="tag" data-status={i.status}>{STATUS_LABEL[i.status]}</span>}
           </button>
         </li>
       ))}

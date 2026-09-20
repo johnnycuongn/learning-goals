@@ -1,17 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { computeLayout, type Layout, type PlacedNode } from '../lib/layout'
 import type { Progress } from '../lib/buildLayout'
-import type { Importance, LayoutStage, Status, View } from '../lib/types'
+import type { LayoutStage, NodeInfo, View } from '../lib/types'
+export type { NodeInfo }
 import { STATUS_LABEL } from '../lib/types'
-
-export interface NodeInfo {
-  title: string
-  meta?: string
-  badge?: string
-  importance: Importance
-  status: Status
-  archived: boolean
-}
 
 const MIN_ZOOM = 0.28
 const MAX_ZOOM = 2.2
@@ -25,6 +17,8 @@ interface Props {
   stageProgress: Map<string, Progress>
   highlightId: string | null
   onOpen: (id: string) => void
+  /** False on a shared link whose owner kept their progress private. */
+  showStatus?: boolean
   /** Absent in the read-only web viewer. */
   onCycle?: (id: string) => void
   /** Reports the stage nearest the middle of the viewport, for the mini-map. */
@@ -38,7 +32,7 @@ function estimate(title: string, width: number, hasMeta: boolean): number {
   return 22 + Math.max(1, Math.ceil(title.length / perLine)) * 17 + (hasMeta ? 18 : 0)
 }
 
-export function Canvas({ view, title, subtitle, stages, items, stageProgress, highlightId, onOpen, onCycle, onVisibleStage, scrollTarget }: Props) {
+export function Canvas({ view, title, subtitle, stages, items, stageProgress, highlightId, onOpen, onCycle, onVisibleStage, scrollTarget, showStatus = true }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const nodeRefs = useRef(new Map<string, HTMLElement>())
   const heights = useRef(new Map<string, number>())
@@ -320,6 +314,7 @@ export function Canvas({ view, title, subtitle, stages, items, stageProgress, hi
                 stage={stageById.get(place.id)!}
                 index={stages.findIndex((x) => x.id === place.id)}
                 prog={stageProgress.get(place.id)}
+                showStatus={showStatus}
                 highlighted={highlightId === place.id}
                 onOpen={onOpen}
                 registerRef={registerRef}
@@ -329,6 +324,7 @@ export function Canvas({ view, title, subtitle, stages, items, stageProgress, hi
                 key={place.id}
                 place={place}
                 info={items.get(place.id)!}
+                showStatus={showStatus}
                 highlighted={highlightId === place.id}
                 onOpen={onOpen}
                 onCycle={onCycle}
@@ -376,8 +372,8 @@ export function Canvas({ view, title, subtitle, stages, items, stageProgress, hi
 
 type Reg = (id: string, el: HTMLElement | null) => void
 
-function StageNode({ place, stage, index, prog, highlighted, onOpen, registerRef }: {
-  place: PlacedNode; stage: LayoutStage; index: number; prog?: Progress
+function StageNode({ place, stage, index, prog, showStatus, highlighted, onOpen, registerRef }: {
+  place: PlacedNode; stage: LayoutStage; index: number; prog?: Progress; showStatus: boolean
   highlighted: boolean; onOpen: (id: string) => void; registerRef: Reg
 }) {
   const status = prog?.status ?? 'todo'
@@ -389,20 +385,22 @@ function StageNode({ place, stage, index, prog, highlighted, onOpen, registerRef
       data-status={status}
       data-highlight={highlighted || undefined}
       style={{ left: place.x, top: place.y, width: place.w }}
-      aria-label={`Stage ${index + 1}: ${stage.title}. ${STATUS_LABEL[status]}, ${prog?.done ?? 0} of ${prog?.counted ?? 0} done.`}
+      aria-label={showStatus ? `Stage ${index + 1}: ${stage.title}. ${STATUS_LABEL[status]}, ${prog?.done ?? 0} of ${prog?.counted ?? 0} done.` : `Stage ${index + 1}: ${stage.title}.`}
       onClick={() => onOpen(stage.id)}
     >
-      <span className="tag node__tag" data-status={status}>
-        {STATUS_LABEL[status]} {prog?.done ?? 0}/{prog?.counted ?? 0}
-      </span>
+      {showStatus && (
+        <span className="tag node__tag" data-status={status}>
+          {STATUS_LABEL[status]} {prog?.done ?? 0}/{prog?.counted ?? 0}
+        </span>
+      )}
       <span className="node__title">{index + 1}. {stage.title}</span>
       {stage.pace && <span className="node__pace">{stage.pace}</span>}
     </button>
   )
 }
 
-function ItemNode({ place, info, highlighted, onOpen, onCycle, registerRef }: {
-  place: PlacedNode; info: NodeInfo; highlighted: boolean
+function ItemNode({ place, info, showStatus, highlighted, onOpen, onCycle, registerRef }: {
+  place: PlacedNode; info: NodeInfo; showStatus: boolean; highlighted: boolean
   onOpen: (id: string) => void; onCycle?: (id: string) => void; registerRef: Reg
 }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -421,7 +419,7 @@ function ItemNode({ place, info, highlighted, onOpen, onCycle, registerRef }: {
       data-archived={info.archived || undefined}
       data-highlight={highlighted || undefined}
       style={{ left: place.x, top: place.y, width: place.w }}
-      aria-label={`${info.title}. ${info.archived ? 'Archived. ' : ''}Status: ${STATUS_LABEL[info.status]}.`}
+      aria-label={showStatus ? `${info.title}. ${info.archived ? 'Archived. ' : ''}Status: ${STATUS_LABEL[info.status]}.` : info.title}
       onClick={() => {
         if (longPressed.current) {
           longPressed.current = false
@@ -447,9 +445,11 @@ function ItemNode({ place, info, highlighted, onOpen, onCycle, registerRef }: {
       onPointerLeave={cancel}
       onPointerCancel={cancel}
     >
-      <span className="tag node__tag" data-status={info.archived ? 'skipped' : info.status}>
-        {info.archived ? 'Archived' : STATUS_LABEL[info.status]}
-      </span>
+      {showStatus && (
+        <span className="tag node__tag" data-status={info.archived ? 'skipped' : info.status}>
+          {info.archived ? 'Archived' : STATUS_LABEL[info.status]}
+        </span>
+      )}
       <span className="node__title">{info.title}</span>
       {info.meta && <span className="node__meta">{info.meta}</span>}
       {info.badge && <span className="node__cost">{info.badge}</span>}

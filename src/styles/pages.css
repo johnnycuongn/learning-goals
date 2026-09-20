@@ -143,3 +143,9 @@ select.mini { max-width: 170px; }
 .spin { display: inline-block; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+
+/* Share dialog */
+.sharelink { display: grid; grid-template-columns: 1fr; gap: 6px; margin: 0 0 14px; }
+@media (min-width: 480px) { .sharelink { grid-template-columns: 1fr auto auto; } }
+.sharelink .input { font-size: 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; }
+.header__row .pill { flex: none; white-space: nowrap; }

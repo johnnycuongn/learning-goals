@@ -9,6 +9,7 @@ import { Dashboard } from './pages/Dashboard'
 import { NewRoadmap } from './pages/NewRoadmap'
 import { RoadmapPage } from './pages/RoadmapPage'
 import { AccountPage } from './pages/AccountPage'
+import { SharedPage } from './pages/SharedPage'
 import { refreshIfDue } from './lib/briefing'
 
 export default function App() {
@@ -42,6 +43,9 @@ export default function App() {
 
   // The web build is a viewer; creating lives in the desktop app.
   useEffect(() => { if (route.page === 'new' && !canEdit) go({ page: 'home' }, true) }, [route.page])
+
+  // A public share link needs no account, so it is answered before the sign-in gate.
+  if (route.page === 'shared') return <SharedPage token={route.token} view={route.view} target={route.target} />
 
   if (session === undefined) return <div className="authwrap"><p className="empty">Loading…</p></div>
   if (!session) return <AuthScreen />

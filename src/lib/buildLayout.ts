@@ -1,4 +1,4 @@
-import type { Block, Bundle, LayoutStage, Status, View } from './types'
+import { KIND_LABEL, type Block, type Bundle, type LayoutStage, type NodeInfo, type Status, type View } from './types'
 
 export const byPosition = <T extends { position: number }>(a: T, b: T) => a.position - b.position
 
@@ -51,4 +51,26 @@ export function progressOf(items: { status: Status; archived_at: string | null }
   if (total > 0 && done + skipped === total && done > 0) status = 'done'
   else if (inProgress > 0 || done > 0) status = 'in_progress'
   return { status, done, inProgress, total, counted, pct: counted ? Math.round((done / counted) * 100) : 0 }
+}
+
+/** What each node on the canvas shows, for the current view. */
+export function nodeInfos(bundle: Bundle, view: View): Map<string, NodeInfo> {
+  const m = new Map<string, NodeInfo>()
+  if (view === 'topics') {
+    for (const t of bundle.topics) m.set(t.id, { title: t.title, importance: t.importance, status: t.status, archived: Boolean(t.archived_at) })
+  } else {
+    for (const r of bundle.resources) {
+      m.set(r.id, {
+        title: r.title, importance: r.importance, status: r.status, archived: Boolean(r.archived_at),
+        meta: [KIND_LABEL[r.kind], r.provider, r.duration].filter(Boolean).join(' · '),
+        badge: r.cost && !/^free$/i.test(r.cost) ? r.cost : undefined,
+      })
+    }
+  }
+  return m
+}
+
+export function stageProgressMap(bundle: Bundle, view: View): Map<string, Progress> {
+  const list = view === 'topics' ? bundle.topics : bundle.resources
+  return new Map(bundle.stages.map((s) => [s.id, progressOf(list.filter((i) => i.stage_id === s.id))]))
 }

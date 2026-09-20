@@ -14,6 +14,7 @@ how far along you are. Grown out of `../AI-Roadmap`.
 | Create a roadmap with AI research | yes | no |
 | "This week" focus card | generates it (button, and daily at a set time) | shows the latest one |
 | Account: model, daily refresh time | editable | shown, read-only |
+| Public share link per roadmap | create, pause, retire, choose whether progress shows | anyone opens it, signed out |
 | AI configuration | the Claude Code CLI on this Mac | none at all |
 
 `src/lib/platform.ts` is the switch: `canEdit` is true only inside Tauri.
@@ -50,6 +51,27 @@ If the Mac was off at 8, you get it when you next open the app.
 Later, if you want research on the web too, that is the point to add a server
 with an Anthropic API key. Nothing here needs to change for that.
 
+## Public share links
+
+Each roadmap can have **one** public link, managed from **Share** on the roadmap
+in the desktop app:
+
+- **On / off.** Off pauses the link; on again, the same link works again.
+- **Retire and replace.** Swaps the token. The old link is dead at once, for
+  everyone who had it, and cannot be brought back.
+- **Include my progress.** Off (the default) shows the roadmap only: no status
+  tags, no percentages, no counts of done. On shows them, read-only.
+
+Never included, whichever you pick: notes, attached files, extra links,
+archived items. Visitors cannot change anything.
+
+How it is kept safe: signed-out visitors have no access to any table. They can
+call one database function, `get_shared_roadmap(token)`, which returns that one
+roadmap as JSON with the private fields already left out. The token is 128 random
+bits, so links cannot be guessed or listed. Links look like
+`https://my-roadmaps-eight.vercel.app/#/s/<token>`; the desktop app builds them
+from `VITE_PUBLIC_WEB_URL`.
+
 ## Stack
 
 | Piece | What | Notes |
@@ -57,7 +79,7 @@ with an Anthropic API key. Nothing here needs to change for that.
 | Tauri 2 + Rust | The desktop shell and the CLI runner | macOS build; unsigned, like dotclaude |
 | Vite + React + TypeScript | The UI for both shells | |
 | Supabase (Sydney), project `ai-roadmap` | Sign-in, Postgres, private file storage | Shared with `../AI-Roadmap`, whose `progress` table is untouched |
-| Vercel Hobby (optional) | Hosting for the web viewer | Non-commercial use only. Not deployed yet |
+| Vercel Hobby | Hosting for the web viewer: https://my-roadmaps-eight.vercel.app | Non-commercial use only. `.vercelignore` keeps the 2.6 GB Rust `target/` out of deploys |
 
 Every table has Row Level Security: you can only read or write rows whose
 `user_id` is you. Files live in a private bucket under `<your user id>/…` and
@@ -107,6 +129,7 @@ Nothing here bills by overage, and no card is on file.
 | `item_links`, `item_files` | Extra links and attachments on a topic or resource |
 | `user_settings` | Model choice, and whether and when the weekly focus refreshes |
 | `briefings` | The latest "This week" card, one per person |
+| `roadmap_shares` | The public link for a roadmap: token, on/off, whether progress shows |
 
 Schema: `supabase/migrations/`.
 

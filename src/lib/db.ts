@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import type {
-  Bundle, Draft, ItemFile, ItemLink, Resource, Roadmap, StageRow, Status, Topic, TopicResource,
+  Bundle, Draft, Share, ItemFile, ItemLink, Resource, Roadmap, StageRow, Status, Topic, TopicResource,
 } from './types'
 
 export type ItemTable = 'topics' | 'resources'
@@ -223,4 +223,55 @@ export async function saveDraft(draft: Draft): Promise<string> {
     throw e
   }
   return roadmapId
+}
+
+/* ---------------------------------------------------------- public sharing -- */
+
+/** 22 url-safe characters from 16 random bytes: 128 bits, not guessable. */
+function newToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+export async function loadShare(roadmapId: string): Promise<Share | null> {
+  return must(await db().from('roadmap_shares').select('roadmap_id,token,enabled,include_status').eq('roadmap_id', roadmapId).maybeSingle()) as Share | null
+}
+
+/** Turns sharing on (minting a link the first time), off, or changes what it shows. */
+export async function saveShare(roadmapId: string, current: Share | null, patch: { enabled?: boolean; include_status?: boolean }): Promise<Share> {
+  const row = {
+    roadmap_id: roadmapId,
+    token: current?.token ?? newToken(),
+    enabled: patch.enabled ?? current?.enabled ?? true,
+    include_status: patch.include_status ?? current?.include_status ?? false,
+    updated_at: new Date().toISOString(),
+  }
+  return must(await db().from('roadmap_shares').upsert(row).select('roadmap_id,token,enabled,include_status').single()) as Share
+}
+
+/** Retires the current link for good and issues a new one. */
+export async function regenerateShare(roadmapId: string): Promise<Share> {
+  return must(await db().from('roadmap_shares').update({ token: newToken(), updated_at: new Date().toISOString() })
+    .eq('roadmap_id', roadmapId).select('roadmap_id,token,enabled,include_status').single()) as Share
+}
+
+export interface SharedRoadmap { bundle: Bundle; includeStatus: boolean }
+
+/** Works signed out: the one thing an anonymous visitor is allowed to ask for. */
+export async function loadShared(token: string): Promise<SharedRoadmap | null> {
+  if (!/^[A-Za-z0-9_-]{22,64}$/.test(token)) return null
+  const raw = must(await db().rpc('get_shared_roadmap', { p_token: token })) as Record<string, unknown> | null
+  if (!raw || !raw.roadmap) return null
+  const rm = raw.roadmap as { id: string; title: string; description: string }
+  const blank = { roadmap_id: rm.id, status_changed_at: null, archived_at: null, notes_md: '' }
+  return {
+    includeStatus: raw.include_status === true,
+    bundle: {
+      roadmap: { ...rm, state: 'active', created_at: '', updated_at: '' },
+      stages: (raw.stages as StageRow[]).map((s) => ({ ...s, roadmap_id: rm.id })),
+      topics: (raw.topics as Topic[]).map((t) => ({ ...blank, ...t })),
+      resources: (raw.resources as Resource[]).map((r) => ({ ...blank, ...r })),
+      links: raw.links as TopicResource[],
+    },
+  }
 }

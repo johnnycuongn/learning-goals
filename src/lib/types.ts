@@ -148,3 +148,20 @@ export interface LayoutStage {
   note?: string
   layout: { above: Block[]; below: Block[] }
 }
+
+/* ---- canvas + sharing ---------------------------------------------------- */
+
+export interface NodeInfo {
+  title: string
+  meta?: string
+  badge?: string
+  importance: Importance
+  status: Status
+  archived: boolean
+}
+export interface Share {
+  roadmap_id: string
+  token: string
+  enabled: boolean
+  include_status: boolean
+}
