@@ -33,7 +33,7 @@ export function AuthScreen() {
       } else if (mode === 'signup') {
         const { data, error } = await auth.signUp({ email: email.trim(), password })
         if (error) throw error
-        if (!data.session) setMsg({ ok: true, text: 'Check your email and click the confirmation link. It may open a page that fails to load; that is fine, the confirmation still counts. Then sign in here.' })
+        if (!data.session) setMsg({ ok: true, text: 'Check your email to confirm the account, then sign in here.' })
       } else if (!sent) {
         const { error } = await auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: false, emailRedirectTo: isDesktop ? undefined : window.location.origin + window.location.pathname } })
         if (error) throw error
@@ -47,7 +47,14 @@ export function AuthScreen() {
         if (error) throw error
       }
     } catch (err) {
-      setMsg({ ok: false, text: err instanceof Error ? err.message : String(err) })
+      const text = err instanceof Error ? err.message : String(err)
+      if (mode === 'signup' && /already registered/i.test(text)) {
+        // Most likely made earlier through an emailed link, so it has no password.
+        setMode('link'); setSent(false)
+        setMsg({ ok: false, text: 'That email already has an account, probably without a password. Get an emailed link below, paste it here to sign in, then set a password under the account button.' })
+        return
+      }
+      setMsg({ ok: false, text })
     } finally {
       setBusy(false)
     }
