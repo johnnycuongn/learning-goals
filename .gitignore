@@ -1,0 +1,40 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# build output
+dist/
+dist-ssr/
+*.local
+.vercel/
+
+# secrets
+.env
+.env.*
+!.env.example
+.dev.vars
+*.pem
+*service-account*.json
+
+# editor / os
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log
+npm-debug.log*
+
+# local test artefacts
+.playwright-mcp/
+shot-*.png
+.vercel
+.env*
+!.env.example
+
+# supabase cli scratch
+supabase/.temp/
+supabase/.branches/
+
+# bridge session (credential material)
+.bridge/

@@ -1,0 +1,150 @@
+/*
+ * Lagoon theme, spec section 5. Every colour the app uses is declared here once,
+ * in both modes, so the manifest and the canvas cannot drift apart.
+ */
+:root {
+  color-scheme: light dark;
+
+  --canvas: #f8fafc;
+  --ink: #0f172a;
+  --soft: #475569;
+  --spine: #0d9488;
+  --pri: #2dd4bf;
+  --pri-text: #042f2e;
+  --pri-hover: #14b8a6;
+  --sub: #ccfbf1;
+  --sub-text: #0f172a;
+  --sub-hover: #99f6e4;
+  --grp: #ffffff;
+  --btn: #0f766e;
+  --btn-text: #ffffff;
+  --mk-rec: #6d28d9;
+  --mk-alt: #0369a1;
+  --mk-opt: #94a3b8;
+  --highlight: #f97316;
+
+  /* Status tags, spec 6.1 */
+  --st-todo-bg: #f1f5f9;
+  --st-todo-text: #475569;
+  --st-todo-border: #cbd5e1;
+  --st-prog-bg: #fef3c7;
+  --st-prog-text: #92400e;
+  --st-prog-border: #f59e0b;
+  --st-prog-accent: #f59e0b;
+  --st-done-bg: #dcfce7;
+  --st-done-text: #166534;
+  --st-done-border: #22c55e;
+  --st-done-fill: #bbf7d0;
+  --st-skip-text: #64748b;
+  --st-skip-border: #94a3b8;
+
+  /* Surfaces the spec does not name, derived from the tokens above. */
+  --panel: #ffffff;
+  --panel-border: #cbd5e1;
+  --chrome: #ffffff;
+  --chrome-border: #e2e8f0;
+  --shadow: 0 10px 30px rgb(15 23 42 / 0.13);
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.09);
+  --focus: #6d28d9;
+
+  --font-canvas: 'Balsamiq Sans', ui-rounded, 'Trebuchet MS', system-ui, sans-serif;
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  --header-h: 108px;
+}
+
+:root[data-theme='dark'],
+:root:not([data-theme='light']) {
+  /* Dark values live in the media query below so an explicit light choice wins. */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --canvas: #0b1220;
+    --ink: #e2e8f0;
+    --soft: #94a3b8;
+    --spine: #2dd4bf;
+    --pri: #2dd4bf;
+    --pri-text: #042f2e;
+    --pri-hover: #5eead4;
+    --sub: #134e4a;
+    --sub-text: #ccfbf1;
+    --sub-hover: #115e59;
+    --grp: #111a2e;
+    --btn: #14b8a6;
+    --btn-text: #042f2e;
+    --mk-rec: #a78bfa;
+    --mk-alt: #38bdf8;
+    --mk-opt: #64748b;
+    --highlight: #fb923c;
+
+    --st-todo-bg: #1e293b;
+    --st-todo-text: #94a3b8;
+    --st-todo-border: #334155;
+    --st-prog-bg: #422006;
+    --st-prog-text: #fcd34d;
+    --st-prog-border: #f59e0b;
+    --st-prog-accent: #f59e0b;
+    --st-done-bg: #052e16;
+    --st-done-text: #86efac;
+    --st-done-border: #22c55e;
+    /* Spec gives one "done" node fill (#BBF7D0); in dark mode that would put
+       light text on a light node, so this is its dark counterpart. */
+    --st-done-fill: #065f46;
+    /* Spec 6.1 keeps #64748B in both modes; on the dark chrome that measures
+       3.75:1, under the 4.5:1 acceptance criterion 6 asks for. This is the
+       palette's own dark --soft, which measures 6.7:1. */
+    --st-skip-text: #94a3b8;
+    --st-skip-border: #475569;
+
+    --panel: #111a2e;
+    --panel-border: #1e293b;
+    --chrome: #0f172a;
+    --chrome-border: #1e293b;
+    --shadow: 0 10px 30px rgb(0 0 0 / 0.5);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --focus: #a78bfa;
+  }
+}
+
+:root[data-theme='dark'] {
+  --canvas: #0b1220;
+  --ink: #e2e8f0;
+  --soft: #94a3b8;
+  --spine: #2dd4bf;
+  --pri: #2dd4bf;
+  --pri-text: #042f2e;
+  --pri-hover: #5eead4;
+  --sub: #134e4a;
+  --sub-text: #ccfbf1;
+  --sub-hover: #115e59;
+  --grp: #111a2e;
+  --btn: #14b8a6;
+  --btn-text: #042f2e;
+  --mk-rec: #a78bfa;
+  --mk-alt: #38bdf8;
+  --mk-opt: #64748b;
+  --highlight: #fb923c;
+
+  --st-todo-bg: #1e293b;
+  --st-todo-text: #94a3b8;
+  --st-todo-border: #334155;
+  --st-prog-bg: #422006;
+  --st-prog-text: #fcd34d;
+  --st-prog-border: #f59e0b;
+  --st-prog-accent: #f59e0b;
+  --st-done-bg: #052e16;
+  --st-done-text: #86efac;
+  --st-done-border: #22c55e;
+  --st-done-fill: #065f46;
+  --st-skip-text: #94a3b8;
+  --st-skip-border: #475569;
+
+  --panel: #111a2e;
+  --panel-border: #1e293b;
+  --chrome: #0f172a;
+  --chrome-border: #1e293b;
+  --shadow: 0 10px 30px rgb(0 0 0 / 0.5);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --focus: #a78bfa;
+}
