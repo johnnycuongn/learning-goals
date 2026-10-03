@@ -230,30 +230,47 @@ const txt = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
 const txts = (v: unknown) => (Array.isArray(v) ? v.map(txt).filter(Boolean) : [])
 const isUrl = (u: string) => /^https?:\/\/\S+$/i.test(u)
 
-const REMOVAL = /\b(remov|delet|drop|archiv|get rid|cut|ditch|swap|replac|retir|prun)/
-const NEGATION = /\b(don't|dont|do not|never|not|no|can't|cant|cannot|won't|wont|shouldn't|avoid|keep|instead of|rather than|no need to|without)\b/
+/** Whole words only: "cutting-edge", "dropdown" and "drop in" are not removals. */
+const REMOVAL = new RegExp(`(?<![\\w-])(?:${[
+  'remove', 'removed', 'removes', 'removing', 'removal',
+  'delete', 'deleted', 'deletes', 'deleting', 'deletion',
+  '(?:drop|dropped|drops|dropping)(?! in(?![\\w-]))',
+  'archive', 'archived', 'archives', 'archiving',
+  'get rid', 'getting rid', 'got rid',
+  'cut', 'cuts', 'cutting',
+  'ditch', 'ditched', 'ditches', 'ditching',
+  'swap', 'swapped', 'swaps', 'swapping',
+  'replace', 'replaced', 'replaces', 'replacing',
+  'retire', 'retired', 'retires', 'retiring',
+  'prune', 'pruned', 'prunes', 'pruning',
+].join('|')})(?![\\w-])`, 'g')
+const STOP = new Set(['the', 'a', 'an', 'this', 'that', 'these', 'those', 'it', 'its', 'them', 'all', 'any', 'my', 'of', 'and', 'or', 'please', 'just', 'also', 'to', 'from', 'in', 'on', 'for'])
+const NEGATION = /\b(don't|dont|do not|never|not|no|can't|cant|cannot|won't|wont|shouldn't|avoid|keep|instead of|rather than|no need to|without|nothing|none|neither|nor|leave)\b/
 const norm = (s: string) => s.toLowerCase().replace(/[‘’]/g, "'").replace(/[“”"]/g, '').replace(/\s+/g, ' ').trim()
+const SENTENCE_END = /[.!?;\n]/
 
 /**
- * True only if `quote` is really in the learner's message, asks for a removal,
- * and is not negated earlier in the same sentence.
+ * True only if `quote` asks for a removal (a removal word) of something (a word
+ * that is not a removal word or a stop-word), is really in the learner's
+ * message, and no sentence it appears in carries a negation anywhere.
  */
 export function userAskedToRemove(message: string, quote: string): boolean {
-  const m = norm(message)
   const q = norm(quote)
-  const word = q.search(REMOVAL)
-  if (q.length < 3 || word < 0) return false
-  const at = m.indexOf(q)
-  if (at < 0) return false
-  // Check from the start of the sentence containing the quote, not just 30 chars back
-  const sentenceStart = Math.max(0, Math.max(
-    m.lastIndexOf('.', at - 1),
-    m.lastIndexOf('!', at - 1),
-    m.lastIndexOf('?', at - 1),
-    m.lastIndexOf(';', at - 1),
-    m.lastIndexOf('\n', at - 1)
-  ) + 1)
-  return !NEGATION.test(m.slice(sentenceStart, at + word))
+  if (!q.match(REMOVAL)) return false
+  const rest = q.replace(REMOVAL, ' ').match(/[\p{L}\p{N}]+(?:'[\p{L}\p{N}]+)*/gu) ?? []
+  if (!rest.some((w) => !STOP.has(w))) return false
+  // Lines are normalised one by one, so a line break still ends a sentence.
+  const m = message.split('\n').map(norm).join('\n')
+  let found = false
+  for (let at = m.indexOf(q); at >= 0; at = m.indexOf(q, at + 1)) {
+    found = true
+    let from = at
+    while (from > 0 && !SENTENCE_END.test(m[from - 1])) from--
+    let to = at + q.length
+    while (to < m.length && !SENTENCE_END.test(m[to - 1])) to++
+    if (NEGATION.test(m.slice(from, to))) return false
+  }
+  return found
 }
 
 type Kind = 'stage' | Table
@@ -302,10 +319,20 @@ export function validate(raw: unknown, bundle: Bundle, message: string, refs: Re
       case 'unlink': return `Unlink ${label(c.resource)} from ${label(c.topic)}`
     }
   }
+  /** Claude's line, except that a row archiving, restoring, editing or moving an item always names it. */
+  const summarise = (c: Raw, change: Change): string => {
+    const said = txt(c.summary)
+    if (!said || change.op === 'archive_item' || change.op === 'restore_item') return describe(change)
+    if (change.op === 'update_item' || change.op === 'move_item') {
+      const title = titles.get(change.id) ?? ''
+      if (title && !said.toLowerCase().includes(title.toLowerCase())) return `${said} \u2014 "${title}"`
+    }
+    return said
+  }
   const push = (at: number, c: Raw, change: Change, dependsOn: number[] = [], hidden = false) => {
     const num = ++n
     order.set(num, at)
-    out.push({ n: num, summary: (hidden ? '' : txt(c.summary)) || describe(change), change, dependsOn, ...(hidden ? { hidden } : {}) })
+    out.push({ n: num, summary: hidden ? describe(change) : summarise(c, change), change, dependsOn, ...(hidden ? { hidden } : {}) })
     return num
   }
   const drop = (c: Raw, why: string) => { dropped.push(`${txt(c.summary) || txt(c.op) || 'A change'}: ${why}`) }

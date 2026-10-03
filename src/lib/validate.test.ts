@@ -188,11 +188,49 @@ describe('the removal rule', () => {
     expect(userAskedToRemove('Add a Kafka stage; remove the YouTube playlist', 'remove the YouTube playlist')).toBe(true)
   })
 
+  it('never pre-ticks a quote that negates, names nothing, or is not a removal word', () => {
+    expect(userAskedToRemove('Nothing should be removed, just add a stage on Kafka.', 'removed')).toBe(false)
+    expect(userAskedToRemove('Remove nothing, just add a stage.', 'Remove nothing')).toBe(false)
+    expect(userAskedToRemove('None of it should be deleted', 'deleted')).toBe(false)
+    expect(userAskedToRemove('Add a cutting-edge topic on RAG.', 'Add a cutting-edge topic')).toBe(false)
+    expect(userAskedToRemove('Add a dropdown section to stage 2', 'dropdown')).toBe(false)
+    expect(userAskedToRemove("I don't want to lose anything. Add more and drop in a project.", 'drop in a project')).toBe(false)
+    expect(userAskedToRemove("Remove the paid course. Don't remove the videos.", 'remove the')).toBe(false)
+  })
+
+  it('still pre-ticks plain requests that name what goes', () => {
+    expect(userAskedToRemove('Swap the paid RAG bootcamp for a free course', 'swap the paid RAG bootcamp')).toBe(true)
+    expect(userAskedToRemove('Add a Kafka stage; remove the YouTube playlist', 'remove the YouTube playlist')).toBe(true)
+    expect(userAskedToRemove('Remove the bootcamp. Don’t touch the docs.', 'Remove the bootcamp')).toBe(true)
+    expect(userAskedToRemove('Please cut the intro video', 'cut the intro video')).toBe(true)
+  })
+
+  it('checks every place the quote appears, and a line break ends a sentence', () => {
+    expect(userAskedToRemove('Remove the video. Never remove the video', 'remove the video')).toBe(false)
+    expect(userAskedToRemove("Don't touch the docs\nremove the bootcamp", 'remove the bootcamp')).toBe(true)
+  })
+
   it('rejects archives with curly apostrophes in negation (validate level)', () => {
     const archive = raw({ op: 'archive_item', ref: 'r2', reason: 'Paid and dated', requested_by_user: true, quote: 'remove anything' })
     const v = run([archive], "Don’t remove anything, just add a stage on Kafka")
     expect(v.checked).toEqual([])
     expect(v.asks).toHaveLength(1)
+  })
+})
+
+describe('validate: rows name what they touch', () => {
+  it('an archive always shows the real title, whatever Claude wrote', () => {
+    const v = run([raw({ op: 'archive_item', ref: 'r2', summary: 'Archive "Something else"', requested_by_user: true, quote: 'remove the paid RAG bootcamp' })],
+      'Please remove the paid RAG bootcamp')
+    expect(v.checked.map((c) => c.summary)).toEqual(['Archive "Paid RAG bootcamp"'])
+  })
+
+  it("an update keeps Claude's line and adds the real title when it is missing", () => {
+    const v = run([
+      raw({ op: 'update_item', ref: 't1', title: 'Prompt design', summary: 'Rename it' }),
+      raw({ op: 'update_item', ref: 't1', description: 'How to write prompts', summary: 'Describe prompting better' }),
+    ])
+    expect(v.checked.map((c) => c.summary)).toEqual(['Rename it \u2014 "Prompting"', 'Describe prompting better'])
   })
 })
 

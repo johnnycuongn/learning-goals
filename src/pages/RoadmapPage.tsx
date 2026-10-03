@@ -123,7 +123,7 @@ export function RoadmapPage({ id, view, target, onError }: Props) {
         <Canvas key={`${id}:${view}`} view={view} title={bundle.roadmap.title}
           subtitle={view === 'topics' ? 'What to learn, in order.' : 'Courses, docs, posts and projects for each stage.'}
           stages={stages} items={items} stageProgress={stageProgress} highlightId={pulse ?? target} marks={chatPreview?.marks}
-          onOpen={(t) => open(t)} onCycle={canEdit ? cycle : undefined} onVisibleStage={setCurrentStage} scrollTarget={scrollTarget} />
+          onOpen={(t) => { if (chatPreview?.marks.get(t) === 'new') return; open(t) }} onCycle={canEdit ? cycle : undefined} onVisibleStage={setCurrentStage} scrollTarget={scrollTarget} />
       )}
 
       {target && (

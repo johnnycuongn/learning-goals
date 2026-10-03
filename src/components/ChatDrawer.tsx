@@ -92,6 +92,14 @@ export function ChatDrawer({ bundle, onPreview, onLocate, onApplied, onClose, on
   const [confirmClear, setConfirmClear] = useState(false)
   const [peek, setPeek] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
+  /** False once the drawer is gone: a late answer must not save over newer history. */
+  const alive = useRef(true)
+  /** The CLI run in flight and the plan on screen, for cleaning up when the drawer goes. */
+  const jobRef = useRef<string | null>(null)
+  const pendingRef = useRef<Pending | null>(null)
+  /** Saves run one after another, so the database always ends with the latest history. */
+  const saves = useRef<Promise<void>>(Promise.resolve())
+  const saveSeq = useRef(0)
   const name = ai?.name ?? 'Claude'
   const started = run?.started
 
@@ -125,8 +133,10 @@ export function ChatDrawer({ bundle, onPreview, onLocate, onApplied, onClose, on
 
   const persist = (next: ChatMessage[]) => {
     history.current = next
-    setMessages(next)
-    api.saveChat(roadmapId, next).then(() => setUnsaved(false), () => setUnsaved(true))
+    if (alive.current) setMessages(next)
+    const seq = ++saveSeq.current
+    const latest = (ok: boolean) => { if (alive.current && seq === saveSeq.current) setUnsaved(!ok) }
+    saves.current = saves.current.then(() => api.saveChat(roadmapId, next)).then(() => latest(true), () => latest(false))
   }
 
   /** Writes how a plan ended into its message, so Claude sees it next time. */
@@ -140,8 +150,24 @@ export function ChatDrawer({ bundle, onPreview, onLocate, onApplied, onClose, on
     })))
   }
 
+  // Closing the drawer by any route (its ✕, the header button, leaving the page)
+  // cancels the run in flight and records an open plan as declined.
+  useEffect(() => { pendingRef.current = pending }, [pending])
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+      if (jobRef.current) void cancelAi(jobRef.current)
+      jobRef.current = null
+      const p = pendingRef.current
+      if (p) record(p, (c) => (p.applied.has(c.n) ? 'applied' : 'declined'))
+    }
+    // Runs once: `record` only reads refs and this roadmap's id, which cannot change while the drawer is open.
+  }, [])
+
   const ask = async (message: string, before: ChatMessage[]) => {
     const job = newKey('job')
+    jobRef.current = job
     setFailure(null)
     setNotice(null)
     setElapsed(0)
@@ -150,8 +176,10 @@ export function ChatDrawer({ bundle, onPreview, onLocate, onApplied, onClose, on
       const { prompt, refs } = chatPrompt(bundle, before, message)
       const raw = await runChat(job, prompt, CHAT_SCHEMA, (p) =>
         setRun((r) => (r && r.job === job ? { ...r, log: [...r.log.slice(-30), p] } : r)))
+      if (!alive.current) return
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error(`${name}'s answer couldn't be read.`)
       const v = validate(raw, bundle, message, refs)
-      const reply = raw && typeof raw === 'object' && typeof (raw as { reply?: unknown }).reply === 'string' ? (raw as { reply: string }).reply.trim() : ''
+      const reply = typeof (raw as { reply?: unknown }).reply === 'string' ? (raw as { reply: string }).reply.trim() : ''
       const hasPlan = v.checked.length > 0 || v.asks.length > 0
       const id = newKey('m')
       persist([...history.current, {
@@ -170,6 +198,7 @@ export function ChatDrawer({ bundle, onPreview, onLocate, onApplied, onClose, on
         setNotice({ text: 'No changes to apply.', details: v.dropped })
       }
     } catch (e) {
+      if (!alive.current) return
       const error = e instanceof Error ? e.message : String(e)
       if (error === 'cancelled') {
         // Forget the unanswered message and give the words back to edit.
@@ -180,7 +209,8 @@ export function ChatDrawer({ bundle, onPreview, onLocate, onApplied, onClose, on
         setFailure({ message, before, error })
       }
     } finally {
-      setRun(null)
+      if (jobRef.current === job) jobRef.current = null
+      if (alive.current) setRun(null)
     }
   }
 
@@ -221,7 +251,7 @@ export function ChatDrawer({ bundle, onPreview, onLocate, onApplied, onClose, on
       const res = await applyChanges(plan, preview(fresh, plan).bundle, fresh, api)
       const applied = new Set([...p.applied, ...res.applied])
       const skipped = new Set([...p.skipped, ...res.skipped])
-      await onApplied()
+      // Settle the plan before the roadmap reloads, so no frame previews changes already written.
       if (res.failed) {
         const failedN = res.failed.n
         const next: Pending = { ...p, applied, skipped, note: `Stopped after ${plural(res.applied.length, 'change')}: ${res.failed.error}. Press Retry to try the rest.` }
@@ -234,6 +264,7 @@ export function ChatDrawer({ bundle, onPreview, onLocate, onApplied, onClose, on
         const gone = visible(p.checked).filter((c) => res.skipped.includes(c.n)).length
         setNotice({ text: `Applied ${plural(count, 'change')}.${gone ? ` ${plural(gone, 'change')} no longer applied, because what they changed was removed in the meantime.` : ''}` })
       }
+      await onApplied()
     } catch (e) {
       onError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -242,7 +273,11 @@ export function ChatDrawer({ bundle, onPreview, onLocate, onApplied, onClose, on
   }
 
   const clear = () => {
-    api.clearChat(roadmapId).then(() => {
+    // After any save still on its way, so that save cannot bring the old chat back.
+    const cleared = saves.current.then(() => api.clearChat(roadmapId))
+    saves.current = cleared.catch(() => undefined)
+    cleared.then(() => {
+      if (!alive.current) return
       history.current = []
       setMessages([])
       setPending(null)
@@ -250,12 +285,6 @@ export function ChatDrawer({ bundle, onPreview, onLocate, onApplied, onClose, on
       setFailure(null)
       setConfirmClear(false)
     }, (e) => onError(e instanceof Error ? e.message : String(e)))
-  }
-
-  const close = () => {
-    if (run) void cancelAi(run.job)
-    discard()
-    onClose()
   }
 
   const busy = Boolean(run) || applying
@@ -267,14 +296,14 @@ export function ChatDrawer({ bundle, onPreview, onLocate, onApplied, onClose, on
         <strong className="chat__title">✦ Ask {name}</strong>
         {messages && messages.length > 0 && (confirmClear ? (
           <>
-            <button type="button" className="mini mini--danger" onClick={clear}>Clear chat</button>
+            <button type="button" className="mini mini--danger" disabled={busy} onClick={clear}>Clear chat</button>
             <button type="button" className="mini" onClick={() => setConfirmClear(false)}>Keep</button>
           </>
         ) : (
           <button type="button" className="mini" disabled={busy} onClick={() => setConfirmClear(true)}>New conversation</button>
         ))}
         <button type="button" className="mini chat__peek" onClick={() => setPeek((v) => !v)}>{peek ? 'Show chat' : 'Show roadmap'}</button>
-        <button type="button" className="iconbtn" onClick={close} aria-label="Close chat">✕</button>
+        <button type="button" className="iconbtn" onClick={onClose} aria-label="Close chat">✕</button>
       </div>
 
       <div className="chat__list" ref={listRef} aria-live="polite">
