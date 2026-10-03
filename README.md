@@ -1,163 +1,184 @@
-# My Roadmaps
+# Learning Goals
 
-Many learning roadmaps in one place. Each is a horizontal spine of stages with
-**topics** (what to learn) and **resources** (where to learn it: courses, docs,
-blog posts, videos, books, projects), a status on every item, and a dashboard of
-how far along you are. Grown out of `../AI-Roadmap`.
+**Tell it what you want to learn. Get a real roadmap, with real resources, that keeps up with you.**
 
-## Two shells, one codebase
+Learning Goals is a free Mac app that turns a goal like *"become an AI engineer"*
+into a step-by-step learning roadmap: stages, the topics to learn in each, and
+the courses, docs, videos, books and projects to learn them from. It researches
+the web to build it, tracks your progress as you go, and lets you reshape it at
+any time by simply asking.
 
-| | Desktop app (Tauri) | Web viewer |
-|---|---|---|
-| Browse roadmaps, dashboard, stats | yes | yes |
-| Change status, notes, links, files, archive, move, delete | yes | no, read-only |
-| Create a roadmap with AI research | yes | no |
-| "This week" focus card | generates it (button, and daily at a set time) | shows the latest one |
-| Account: model, daily refresh time | editable | shown, read-only |
-| Public share link per roadmap | create, pause, retire, choose whether progress shows | anyone opens it, signed out |
-| AI configuration | the Claude Code CLI on this Mac | none at all |
+No account. No server. No API key. Your roadmaps live on your Mac, and the AI is
+the Claude Code or Codex you already use.
 
-`src/lib/platform.ts` is the switch: `canEdit` is true only inside Tauri.
+![A roadmap in Learning Goals: stages along a spine, topics above and below, each with its status](docs/roadmap.png)
 
-## How the AI works (and why there is no API key)
+---
 
-Research is one non-interactive turn of the **Claude Code CLI you are already
-signed into** (`claude -p`), spawned by `src-tauri/src/ai.rs`. It uses your
-Claude subscription, exactly like running `claude` in a terminal.
+## Why Learning Goals
 
-The child process is locked down: its only tools are `WebSearch` and `WebFetch`
-(no shell, no file access, no MCP servers, no hooks), it runs in an empty
-scratch folder, the prompt goes in on stdin, and the answer must match a JSON
-schema (`--json-schema`). What comes back is still cleaned in
-`normalise()` before you see it: unique keys, links only to topics that exist,
-http(s) urls only, one main resource per topic.
+Most learning plans die in a bookmarks folder. Learning Goals keeps the whole
+path in one picture: what comes first, what you're on now, and what's next.
 
-Nothing is saved until you review the draft and press **Save roadmap**.
+- **Researched, not guessed.** Every resource is a real page found on the web while
+  building your roadmap: free and current where possible, with the cost stated
+  honestly.
+- **One view of the whole journey.** Stages run along a spine, so you always see
+  where you are and how much is left.
+- **It changes when you do.** New interest? Too much on your plate? Found a better
+  course? Ask, and the roadmap adapts, without losing any of your progress.
+- **Yours, on your Mac.** Everything is stored locally. Nothing to sign up for,
+  nothing synced to someone else's server.
 
-### The "This week" card
+## What you can do
 
-A second, much smaller CLI turn with **no tools at all** (about ten seconds). It
-gets a summary built in `src/lib/briefing.ts`: what is in progress and for how
-long, what was finished in the last 30 days, which resources cover the most
-in-progress or completed topics, and the next few to-dos per roadmap. It never
-sees your notes or files. It answers with one to three things to do this week
-and up to three notes on what to leave alone.
+### 🧭 Research a roadmap from one sentence
+Describe your goal and, optionally, where you're starting from. The AI searches
+the web, compares resources and drafts a full roadmap in a few minutes (turn on
+**Deep research** for a more thorough pass). You review the draft, reorder or
+remove anything, ask for changes, and only then save it.
 
-There is no server to run a cron job on, so the daily refresh (default 08:00,
-set in Account) is done by the desktop app: it checks on open and every five
-minutes, and regenerates the first time it finds the scheduled time has passed.
-If the Mac was off at 8, you get it when you next open the app.
+### 💬 Change it later by chatting
+Open **✦ Ask Claude** (or **✦ Ask Codex**) on any roadmap and say what you want:
 
-Later, if you want research on the web too, that is the point to add a server
-with an Anthropic API key. Nothing here needs to change for that.
+> *"Add a stage on vector databases after stage 2."*
+> *"Swap the paid courses for free ones."*
+> *"Expand stage 3, I want more depth on evaluation."*
 
-### Roadmap chat
+Every proposed change shows up on the roadmap **before** anything is saved:
+dashed green for new, amber for changed, struck through for removed. Hover a
+change to find it, untick what you don't want, then press **Apply**.
 
-**✦ Ask Claude** (or **✦ Ask Codex**, whichever you picked in Settings) on a
-roadmap opens a chat beside it. Ask for changes in your own words ("add a stage
-on Kafka", "swap the paid course for a free one", "expand stage 3") and it
-proposes them as a checklist. The canvas previews each one: dashed green for new,
-amber for changed, struck-through red for archived. Untick what you don't want,
-then **Apply**. Nothing changes before that.
+Your progress is safe:
+- **Removing means archiving.** Archived items keep their notes, files and status,
+  and can be brought back.
+- **It only removes what you asked for.** If the AI thinks something else should
+  go, it asks you first with a "Should I remove this?" card.
+- **It never touches your status, notes or files.**
+- **It remembers the conversation per roadmap,** so you can pick it up weeks later.
 
-- Each message is one locked-down CLI turn with web search, like research. The
-  AI sees titles, descriptions, links, importance and status. It never sees your
-  notes or files, and it cannot change status, notes or files.
-- "Remove" means **archive**: hidden, with notes, files and status kept, and
-  restorable. The AI can only pre-tick an archive when your message asked for it,
-  and the app checks that by finding its quote of your words in your message.
-  Anything else it thinks should go arrives as a "Should I remove this?" card.
-- Each roadmap keeps its conversation in the local database (the `roadmap_chats`
-  table in the SQLite file), including what you applied or declined, so you can
-  pick it up weeks later. **New conversation** clears it.
-- Code: `src/lib/chat.ts` (prompt, checks, preview), `src/lib/applyChanges.ts`,
-  `src/components/ChatDrawer.tsx`. Tests: `npm test`.
+### ✅ Track progress at a glance
+Click a topic or resource to mark it **To do**, **In progress**, **Done** or
+**Skipped** (right-click or long-press cycles it right on the canvas). Every
+stage shows how far along it is, and the dashboard rolls it all up across your
+roadmaps.
 
-## Public share links
+![A topic open beside the roadmap: status, the main resource to learn it from, links, notes and files](docs/topic.png)
 
-Each roadmap can have **one** public link, managed from **Share** on the roadmap
-in the desktop app:
+### 📝 Keep your notes with the work
+Each topic and resource has room for Markdown notes, extra links and attached
+files (up to 10 MB each). Topics know which resources teach them, and which one
+is the main thing to learn from.
 
-- **On / off.** Off pauses the link; on again, the same link works again.
-- **Retire and replace.** Swaps the token. The old link is dead at once, for
-  everyone who had it, and cannot be brought back.
-- **Include my progress.** Off (the default) shows the roadmap only: no status
-  tags, no percentages, no counts of done. On shows them, read-only.
+### 📅 "This week": a focus card, written for you
+Each morning (at a time you choose) the app looks at what you've started, what
+you've finished and what's next, and suggests one to three things to focus on
+this week, plus what to leave alone for now.
 
-Never included, whichever you pick: notes, attached files, extra links,
-archived items. Visitors cannot change anything.
+## Download
 
-How it is kept safe: signed-out visitors have no access to any table. They can
-call one database function, `get_shared_roadmap(token)`, which returns that one
-roadmap as JSON with the private fields already left out. The token is 128 random
-bits, so links cannot be guessed or listed. Links look like
-`https://my-roadmaps-eight.vercel.app/#/s/<token>`; the desktop app builds them
-from `VITE_PUBLIC_WEB_URL`.
+1. Get the latest **Learning Goals_…_universal.dmg** from the
+   [Releases page](https://github.com/johnnycuongn/learning-goals/releases).
+   It runs on Apple silicon and Intel Macs, on macOS 11 or later.
+2. Open it and drag **Learning Goals** into **Applications**.
+3. **First launch only:** the app isn't notarised by Apple, so macOS will stop it.
+   Open **System Settings → Privacy & Security**, scroll down, and click
+   **Open Anyway** next to Learning Goals. Or run this in Terminal:
+   ```bash
+   xattr -dr com.apple.quarantine "/Applications/Learning Goals.app"
+   ```
 
-## Stack
+Updating is the same drag into Applications. Your roadmaps are kept.
 
-| Piece | What | Notes |
-|---|---|---|
-| Tauri 2 + Rust | The desktop shell and the CLI runner | macOS build; unsigned, like dotclaude |
-| Vite + React + TypeScript | The UI for both shells | |
-| Supabase (Sydney), project `ai-roadmap` | Sign-in, Postgres, private file storage | Shared with `../AI-Roadmap`, whose `progress` table is untouched |
-| Vercel Hobby | Hosting for the web viewer: https://my-roadmaps-eight.vercel.app | Non-commercial use only. `.vercelignore` keeps the 2.6 GB Rust `target/` out of deploys |
+## Set up the AI (one time)
 
-Every table has Row Level Security: you can only read or write rows whose
-`user_id` is you. Files live in a private bucket under `<your user id>/…` and
-are opened through links that expire after five minutes.
+Learning Goals doesn't ship its own AI or ask for a key. It uses a coding
+assistant you're already signed into on this Mac. Pick either one in **Settings**:
 
-## Run it
+| | Get it | Sign in | Uses |
+|---|---|---|---|
+| **Claude Code** | [claude.com/claude-code](https://claude.com/claude-code) | run `claude` once in Terminal | your Claude plan |
+| **Codex** | [github.com/openai/codex](https://github.com/openai/codex) | run `codex login` in Terminal | your OpenAI account |
+
+You can choose a specific model in Settings, or leave it on the assistant's default.
+
+You can use Learning Goals without either: build roadmaps by hand, track
+progress and keep notes. The AI features switch on once an assistant is found.
+
+## Private by design
+
+- **Your data stays on your Mac.** Roadmaps, notes and progress live in a single
+  local database, and attachments are ordinary files on disk. **Settings** shows
+  you the folder.
+- **The AI is locked down.** Each request runs your assistant in an empty
+  scratch folder, without your plugins, MCP servers or hooks. Claude Code gets
+  web search and web reading as its only tools. Codex runs with its shell
+  switched off in a read-only sandbox. Web pages are treated as reference
+  material, never as instructions.
+- **Your notes and files never reach the AI.** It sees titles, descriptions,
+  links and statuses. The "This week" card doesn't even get web access.
+- **Nothing is saved without you.** Research drafts and chat changes are proposals
+  until you press **Save** or **Apply**.
+
+## FAQ
+
+**Is it free?** Yes. The app is free. AI requests count toward the plan of the
+assistant you're signed into, exactly as if you ran it in Terminal.
+
+**How long does research take?** Usually 2 to 5 minutes, or 5 to 15 with Deep
+research. Small chat edits take seconds; adding newly researched resources takes
+a minute or three. You can cancel at any time.
+
+**What happens if I remove something by mistake?** It's archived, not deleted.
+Turn on **Archived** on the roadmap to see it and restore it, with its notes and
+files intact.
+
+**Does it work offline?** Browsing, tracking and notes do. Research, the chat and
+the weekly card need the internet, because the AI does.
+
+**Windows or Linux?** Not yet. The release build is macOS only.
+
+## Build from source
+
+You need Node 20+, Rust (`brew install rust`) and the Xcode command line tools.
 
 ```bash
+git clone https://github.com/johnnycuongn/learning-goals.git
+cd learning-goals
 npm install
-cp .env.example .env.local      # both values are public by design
-npm run app                     # the desktop app, with hot reload
-npm run app:build               # a .app and .dmg in src-tauri/target/release/bundle
-npm run dev                     # just the web viewer, http://localhost:1420
+npm run app          # run the app with hot reload
+npm test             # unit tests
+npm run dmg          # build a .dmg in src-tauri/target/release/bundle
 ```
 
-Needs Rust (`brew install rust`), Xcode command line tools, and Claude Code
-signed in (`claude` once in a terminal).
+Releases: `npm run release -- patch --push` bumps the version, tags it and
+pushes. GitHub Actions then builds a universal DMG into a draft release for you
+to review and publish.
 
-## Signing in
+<details>
+<summary><strong>How it's built</strong></summary>
 
-Email and password, because it works identically in the app and on the web.
-If your account was made with an emailed link and has no password: choose
-"Use an emailed link", copy the link from the email **without clicking it**,
-paste it into the app, then set a password under the account button.
-
-## Free-tier caps
-
-| Cap | Limit | What happens | What to do |
-|---|---|---|---|
-| Supabase inactivity | 7 days with nobody opening it | Project pauses; the app can't load until resumed | Dashboard, Restore, about a minute |
-| Supabase projects | 2 active on the free plan | This app shares one with AI-Roadmap for that reason | Pause another project or go Pro ($25/mo) to split them |
-| Database | 500 MB | Writes fail | A 77-topic roadmap is about 60 KB. Thousands of roadmaps |
-| File storage | 1 GB, 10 MB per file | Uploads fail | Delete old attachments |
-| Claude plan allowance | Your subscription's usage limits | Research fails with a limit message until it resets | Use Sonnet, skip deep research, or wait |
-
-Nothing here bills by overage, and no card is on file.
-
-## Data model
-
-| Table | Holds |
+| Piece | Role |
 |---|---|
-| `roadmaps` | Title, description, state |
-| `stages` | Ordered stages of a roadmap, with pace and an optional milestone |
-| `topics` | What to learn: importance, status, archived flag, markdown notes |
-| `resources` | Where to learn it: kind, provider, url, cost, duration, plus the same status/archive/notes |
-| `topic_resources` | Which resource covers which topic; one per topic is the main one |
-| `item_links`, `item_files` | Extra links and attachments on a topic or resource |
-| `user_settings` | Model choice, and whether and when the weekly focus refreshes |
-| `briefings` | The latest "This week" card, one per person |
-| `roadmap_shares` | The public link for a roadmap: token, on/off, whether progress shows |
+| Tauri 2 + Rust | The desktop shell, the local SQLite database, and the runner that calls `claude` or `codex` |
+| React + TypeScript (Vite) | The whole interface |
+| SQLite (`tauri-plugin-sql`) | Roadmaps, stages, topics, resources, links, notes, settings, the weekly card and chat history. Schema in `src-tauri/migrations/` |
+| Vitest | Unit tests for the chat's checks, preview and apply logic |
 
-Schema: `supabase/migrations/`.
+Each AI request is one non-interactive turn of the CLI, with the prompt on
+stdin and the answer forced into a JSON schema. The app then checks what comes
+back before showing it:
+- links must point at things that exist
+- urls must be http(s)
+- each topic gets one main resource
+- for the chat, every proposed change is validated and previewed before anything is written
 
-## Hand-off notes
+Key files: `src-tauri/src/ai.rs` (the CLI runner), `src/lib/ai.ts` (research),
+`src/lib/chat.ts` and `src/lib/applyChanges.ts` (the chat),
+`src/components/Canvas.tsx` (the roadmap view).
 
-- Data model and visual design: "you decide" (the Lagoon look carries over from AI-Roadmap).
-- Archived items are hidden and leave your stats, but keep notes and files.
-- "Move" means to another stage or earlier/later within one. Moving an item to a
-  different roadmap is not built.
+</details>
+
+---
+
+Made for people who'd rather be learning than organising what to learn.
