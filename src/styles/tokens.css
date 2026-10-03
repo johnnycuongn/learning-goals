@@ -22,6 +22,13 @@
   --mk-alt: #0369a1;
   --mk-opt: #94a3b8;
   --highlight: #f97316;
+  /* Chat preview marks */
+  --mk-new: #15803d;
+  --mk-upd: #b45309;
+  --mk-upd-glow: rgb(245 158 11 / 0.35);
+  --mk-del: #b91c1c;
+  --mk-ask: #c2410c;
+  --mk-text: #ffffff;
 
   /* Status tags, spec 6.1 */
   --st-todo-bg: #f1f5f9;
@@ -77,6 +84,12 @@
     --mk-alt: #38bdf8;
     --mk-opt: #64748b;
     --highlight: #fb923c;
+    --mk-new: #4ade80;
+    --mk-upd: #fbbf24;
+    --mk-upd-glow: rgb(251 191 36 / 0.3);
+    --mk-del: #f87171;
+    --mk-ask: #fb923c;
+    --mk-text: #0f172a;
 
     --st-todo-bg: #1e293b;
     --st-todo-text: #94a3b8;
@@ -125,6 +138,12 @@
   --mk-alt: #38bdf8;
   --mk-opt: #64748b;
   --highlight: #fb923c;
+  --mk-new: #4ade80;
+  --mk-upd: #fbbf24;
+  --mk-upd-glow: rgb(251 191 36 / 0.3);
+  --mk-del: #f87171;
+  --mk-ask: #fb923c;
+  --mk-text: #0f172a;
 
   --st-todo-bg: #1e293b;
   --st-todo-text: #94a3b8;

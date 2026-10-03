@@ -10,7 +10,8 @@ function split(ids: string[]): { above: Block[]; below: Block[] } {
   return { above: block(ids.slice(0, half)), below: block(ids.slice(half)) }
 }
 
-export function buildLayout(bundle: Bundle, view: View, showArchived: boolean): LayoutStage[] {
+/** `alwaysShow`: archived items to show anyway (the chat preview's "about to be archived"). */
+export function buildLayout(bundle: Bundle, view: View, showArchived: boolean, alwaysShow?: Set<string>): LayoutStage[] {
   const items = view === 'topics' ? bundle.topics : bundle.resources
   return [...bundle.stages].sort(byPosition).map((s) => ({
     id: s.id,
@@ -20,7 +21,7 @@ export function buildLayout(bundle: Bundle, view: View, showArchived: boolean): 
     note: s.milestone || undefined,
     layout: split(
       items
-        .filter((i) => i.stage_id === s.id && (showArchived || !i.archived_at))
+        .filter((i) => i.stage_id === s.id && (showArchived || !i.archived_at || Boolean(alwaysShow?.has(i.id))))
         .sort(byPosition)
         .map((i) => i.id),
     ),

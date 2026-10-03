@@ -4,6 +4,7 @@ import type { Progress } from '../lib/buildLayout'
 import type { LayoutStage, NodeInfo, View } from '../lib/types'
 export type { NodeInfo }
 import { STATUS_LABEL } from '../lib/types'
+import { MARK_LABEL, type Mark } from '../lib/chat'
 
 const MIN_ZOOM = 0.28
 const MAX_ZOOM = 2.2
@@ -24,6 +25,8 @@ interface Props {
   /** Reports the stage nearest the middle of the viewport, for the mini-map. */
   onVisibleStage: (stageId: string) => void
   scrollTarget: { id: string; nonce: number } | null
+  /** The chat preview: what each changed node is about to become. */
+  marks?: Map<string, Mark>
 }
 
 /** A height for a node we have not measured yet. Only visible for one frame. */
@@ -32,7 +35,7 @@ function estimate(title: string, width: number, hasMeta: boolean): number {
   return 22 + Math.max(1, Math.ceil(title.length / perLine)) * 17 + (hasMeta ? 18 : 0)
 }
 
-export function Canvas({ view, title, subtitle, stages, items, stageProgress, highlightId, onOpen, onCycle, onVisibleStage, scrollTarget, showStatus = true }: Props) {
+export function Canvas({ view, title, subtitle, stages, items, stageProgress, highlightId, onOpen, onCycle, onVisibleStage, scrollTarget, marks, showStatus = true }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const nodeRefs = useRef(new Map<string, HTMLElement>())
   const heights = useRef(new Map<string, number>())
@@ -316,6 +319,7 @@ export function Canvas({ view, title, subtitle, stages, items, stageProgress, hi
                 prog={stageProgress.get(place.id)}
                 showStatus={showStatus}
                 highlighted={highlightId === place.id}
+                mark={marks?.get(place.id)}
                 onOpen={onOpen}
                 registerRef={registerRef}
               />
@@ -326,6 +330,7 @@ export function Canvas({ view, title, subtitle, stages, items, stageProgress, hi
                 info={items.get(place.id)!}
                 showStatus={showStatus}
                 highlighted={highlightId === place.id}
+                mark={marks?.get(place.id)}
                 onOpen={onOpen}
                 onCycle={onCycle}
                 registerRef={registerRef}
@@ -372,9 +377,9 @@ export function Canvas({ view, title, subtitle, stages, items, stageProgress, hi
 
 type Reg = (id: string, el: HTMLElement | null) => void
 
-function StageNode({ place, stage, index, prog, showStatus, highlighted, onOpen, registerRef }: {
+function StageNode({ place, stage, index, prog, showStatus, highlighted, mark, onOpen, registerRef }: {
   place: PlacedNode; stage: LayoutStage; index: number; prog?: Progress; showStatus: boolean
-  highlighted: boolean; onOpen: (id: string) => void; registerRef: Reg
+  highlighted: boolean; mark?: Mark; onOpen: (id: string) => void; registerRef: Reg
 }) {
   const status = prog?.status ?? 'todo'
   return (
@@ -384,10 +389,12 @@ function StageNode({ place, stage, index, prog, showStatus, highlighted, onOpen,
       className="node node--stage"
       data-status={status}
       data-highlight={highlighted || undefined}
+      data-mark={mark}
       style={{ left: place.x, top: place.y, width: place.w }}
       aria-label={showStatus ? `Stage ${index + 1}: ${stage.title}. ${STATUS_LABEL[status]}, ${prog?.done ?? 0} of ${prog?.counted ?? 0} done.` : `Stage ${index + 1}: ${stage.title}.`}
       onClick={() => onOpen(stage.id)}
     >
+      {mark && <span className="node__mark" data-mark={mark}>{MARK_LABEL[mark]}</span>}
       {showStatus && (
         <span className="tag node__tag" data-status={status}>
           {STATUS_LABEL[status]} {prog?.done ?? 0}/{prog?.counted ?? 0}
@@ -399,8 +406,8 @@ function StageNode({ place, stage, index, prog, showStatus, highlighted, onOpen,
   )
 }
 
-function ItemNode({ place, info, showStatus, highlighted, onOpen, onCycle, registerRef }: {
-  place: PlacedNode; info: NodeInfo; showStatus: boolean; highlighted: boolean
+function ItemNode({ place, info, showStatus, highlighted, mark, onOpen, onCycle, registerRef }: {
+  place: PlacedNode; info: NodeInfo; showStatus: boolean; highlighted: boolean; mark?: Mark
   onOpen: (id: string) => void; onCycle?: (id: string) => void; registerRef: Reg
 }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -418,8 +425,9 @@ function ItemNode({ place, info, showStatus, highlighted, onOpen, onCycle, regis
       data-status={info.status}
       data-archived={info.archived || undefined}
       data-highlight={highlighted || undefined}
+      data-mark={mark}
       style={{ left: place.x, top: place.y, width: place.w }}
-      aria-label={showStatus ? `${info.title}. ${info.archived ? 'Archived. ' : ''}Status: ${STATUS_LABEL[info.status]}.` : info.title}
+      aria-label={`${mark ? `${MARK_LABEL[mark]}: ` : ''}${showStatus ? `${info.title}. ${info.archived ? 'Archived. ' : ''}Status: ${STATUS_LABEL[info.status]}.` : info.title}`}
       onClick={() => {
         if (longPressed.current) {
           longPressed.current = false
@@ -445,6 +453,7 @@ function ItemNode({ place, info, showStatus, highlighted, onOpen, onCycle, regis
       onPointerLeave={cancel}
       onPointerCancel={cancel}
     >
+      {mark && <span className="node__mark" data-mark={mark}>{MARK_LABEL[mark]}</span>}
       {showStatus && (
         <span className="tag node__tag" data-status={info.archived ? 'skipped' : info.status}>
           {info.archived ? 'Archived' : STATUS_LABEL[info.status]}

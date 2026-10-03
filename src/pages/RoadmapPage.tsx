@@ -6,6 +6,9 @@ import { go } from '../lib/router'
 import { STATUS_LABEL, type Bundle, type NodeInfo, type Status, type View } from '../lib/types'
 import { Canvas } from '../components/Canvas'
 import { ItemPanel } from '../components/ItemPanel'
+import { ChatDrawer } from '../components/ChatDrawer'
+import { chatAi } from '../lib/ai'
+import type { Preview } from '../lib/chat'
 
 interface Props { id: string; view: View; target: string | null; onError: (m: string) => void }
 
@@ -18,6 +21,12 @@ export function RoadmapPage({ id, view, target, onError }: Props) {
   const [scrollTarget, setScrollTarget] = useState<{ id: string; nonce: number } | null>(null)
   const [adding, setAdding] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [chatting, setChatting] = useState(false)
+  const [chatPreview, setChatPreview] = useState<Preview | null>(null)
+  const [pulse, setPulse] = useState<string | null>(null)
+  const [aiName, setAiName] = useState('Claude')
+  useEffect(() => { if (canEdit) chatAi().then((a) => setAiName(a.name)).catch(() => undefined) }, [])
+  useEffect(() => { if (!chatPreview) setPulse(null) }, [chatPreview])
 
   const reload = useCallback(async () => {
     try { setBundle(await api.loadBundle(id)) } catch (e) { onError(e instanceof Error ? e.message : String(e)) }
@@ -25,9 +34,15 @@ export function RoadmapPage({ id, view, target, onError }: Props) {
   useEffect(() => { setBundle(undefined); void reload() }, [reload])
   useEffect(() => { if (target) setScrollTarget({ id: target, nonce: Date.now() }) }, [target, view])
 
-  const stages = useMemo(() => (bundle ? buildLayout(bundle, view, showArchived) : []), [bundle, view, showArchived])
-  const items = useMemo(() => (bundle ? nodeInfos(bundle, view) : new Map<string, NodeInfo>()), [bundle, view])
-  const stageProgress = useMemo(() => (bundle ? stageProgressMap(bundle, view) : new Map<string, Progress>()), [bundle, view])
+  // While the chat proposes changes, the canvas draws the roadmap as they would leave it.
+  const shown = chatPreview?.bundle ?? bundle
+  const archiving = useMemo(
+    () => new Set([...(chatPreview?.marks ?? [])].filter(([, m]) => m === 'archived').map(([x]) => x)),
+    [chatPreview],
+  )
+  const stages = useMemo(() => (shown ? buildLayout(shown, view, showArchived, archiving) : []), [shown, view, showArchived, archiving])
+  const items = useMemo(() => (shown ? nodeInfos(shown, view) : new Map<string, NodeInfo>()), [shown, view])
+  const stageProgress = useMemo(() => (shown ? stageProgressMap(shown, view) : new Map<string, Progress>()), [shown, view])
 
   if (bundle === undefined) return <div className="page"><p className="empty pad">Loading…</p></div>
   if (bundle === null) {
@@ -39,6 +54,19 @@ export function RoadmapPage({ id, view, target, onError }: Props) {
   const table: api.ItemTable = view === 'topics' ? 'topics' : 'resources'
   const open = (t: string | null, v: View = view) => go({ page: 'roadmap', id, view: v, target: t }, true)
 
+  /** From the chat: scroll to a node and pulse it. Switching Topics/Resources only on an explicit "Show". */
+  const locate = (itemId: string, switchView: boolean) => {
+    const current = chatPreview?.bundle ?? bundle
+    const v: View | null = current.topics.some((t) => t.id === itemId) ? 'topics'
+      : current.resources.some((r) => r.id === itemId) ? 'resources' : null
+    if (v && v !== view) {
+      if (!switchView) return
+      go({ page: 'roadmap', id, view: v, target: null }, true)
+    }
+    setPulse(itemId)
+    setScrollTarget({ id: itemId, nonce: Date.now() })
+  }
+
   const cycle = (itemId: string) => {
     const item = (view === 'topics' ? bundle.topics : bundle.resources).find((i) => i.id === itemId)
     if (!item || item.archived_at) return
@@ -49,13 +77,16 @@ export function RoadmapPage({ id, view, target, onError }: Props) {
   }
 
   return (
-    <div className="app">
+    <div className={`app${chatting ? ' app--chat' : ''}`}>
       <header className="header">
         <div className="header__row">
           <button type="button" className="iconbtn" onClick={() => go({ page: 'home' })} aria-label="Back to all roadmaps">←</button>
           <div className="brand"><span className="brand__mark">{bundle.roadmap.title}</span></div>
           {archivedCount > 0 && (
             <label className="toggle"><input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> Archived ({archivedCount})</label>
+          )}
+          {canEdit && (
+            <button type="button" className="iconbtn" aria-pressed={chatting} onClick={() => setChatting((c) => !c)}>✦ Ask {aiName}</button>
           )}
           {canEdit && <button type="button" className="iconbtn" onClick={() => setAdding(true)}>+ Add</button>}
           {canEdit && (confirmDelete ? (
@@ -91,7 +122,7 @@ export function RoadmapPage({ id, view, target, onError }: Props) {
       {stages.length === 0 ? <p className="empty pad">This roadmap has no stages yet.</p> : (
         <Canvas key={`${id}:${view}`} view={view} title={bundle.roadmap.title}
           subtitle={view === 'topics' ? 'What to learn, in order.' : 'Courses, docs, posts and projects for each stage.'}
-          stages={stages} items={items} stageProgress={stageProgress} highlightId={target}
+          stages={stages} items={items} stageProgress={stageProgress} highlightId={pulse ?? target} marks={chatPreview?.marks}
           onOpen={(t) => open(t)} onCycle={canEdit ? cycle : undefined} onVisibleStage={setCurrentStage} scrollTarget={scrollTarget} />
       )}
 
@@ -100,6 +131,10 @@ export function RoadmapPage({ id, view, target, onError }: Props) {
           onNavigate={(t) => open(t, bundle.resources.some((r) => r.id === t) ? 'resources' : bundle.topics.some((x) => x.id === t) ? 'topics' : view)} />
       )}
 
+      {chatting && (
+        <ChatDrawer bundle={bundle} onPreview={setChatPreview} onLocate={locate} onApplied={reload}
+          onClose={() => setChatting(false)} onError={onError} />
+      )}
 
       {adding && (
         <AddDialog bundle={bundle} view={view} onClose={() => setAdding(false)} onError={onError}

@@ -51,6 +51,28 @@ If the Mac was off at 8, you get it when you next open the app.
 Later, if you want research on the web too, that is the point to add a server
 with an Anthropic API key. Nothing here needs to change for that.
 
+### Roadmap chat
+
+**✦ Ask Claude** (or **✦ Ask Codex**, whichever you picked in Settings) on a
+roadmap opens a chat beside it. Ask for changes in your own words ("add a stage
+on Kafka", "swap the paid course for a free one", "expand stage 3") and it
+proposes them as a checklist. The canvas previews each one: dashed green for new,
+amber for changed, struck-through red for archived. Untick what you don't want,
+then **Apply**. Nothing changes before that.
+
+- Each message is one locked-down CLI turn with web search, like research. The
+  AI sees titles, descriptions, links, importance and status. It never sees your
+  notes or files, and it cannot change status, notes or files.
+- "Remove" means **archive**: hidden, with notes, files and status kept, and
+  restorable. The AI can only pre-tick an archive when your message asked for it,
+  and the app checks that by finding its quote of your words in your message.
+  Anything else it thinks should go arrives as a "Should I remove this?" card.
+- Each roadmap keeps its conversation in the local database (the `roadmap_chats`
+  table in the SQLite file), including what you applied or declined, so you can
+  pick it up weeks later. **New conversation** clears it.
+- Code: `src/lib/chat.ts` (prompt, checks, preview), `src/lib/applyChanges.ts`,
+  `src/components/ChatDrawer.tsx`. Tests: `npm test`.
+
 ## Public share links
 
 Each roadmap can have **one** public link, managed from **Share** on the roadmap

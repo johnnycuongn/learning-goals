@@ -9,12 +9,20 @@ pub const DB_URL: &str = "sqlite:learning-goals.db";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let migrations = vec![Migration {
-        version: 1,
-        description: "initial schema",
-        sql: include_str!("../migrations/0001_init.sql"),
-        kind: MigrationKind::Up,
-    }];
+    let migrations = vec![
+        Migration {
+            version: 1,
+            description: "initial schema",
+            sql: include_str!("../migrations/0001_init.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 2,
+            description: "roadmap chats",
+            sql: include_str!("../migrations/0002_roadmap_chats.sql"),
+            kind: MigrationKind::Up,
+        },
+    ];
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())

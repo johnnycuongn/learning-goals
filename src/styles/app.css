@@ -708,3 +708,133 @@ button { cursor: pointer; }
 @media (display-mode: standalone) {
   .header { padding-top: max(env(safe-area-inset-top), 6px); }
 }
+
+/* --------------------------------------------------------- chat preview -- */
+
+.node[data-mark] { outline-offset: 3px; }
+.node[data-mark='new'] { outline: 2px dashed var(--mk-new); }
+.node[data-mark='updated'] { outline: 2px solid var(--mk-upd); box-shadow: 0 0 0 6px var(--mk-upd-glow); }
+.node[data-mark='archived'] { outline: 2px dashed var(--mk-del); opacity: .78; }
+.node[data-mark='archived'] .node__title { text-decoration: line-through; }
+.node[data-mark='asked'] { outline: 2px dashed var(--mk-ask); }
+/* Hovering a checklist row wins over the mark. */
+.node[data-mark][data-highlight='true'] { outline: 3px solid var(--highlight); }
+
+/* Top-left, so it never sits on the status tag (top-right). */
+.node__mark {
+  position: absolute;
+  top: -10px;
+  left: 8px;
+  z-index: 1;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font: 700 10.5px/1.5 var(--font-ui);
+  color: var(--mk-text);
+  white-space: nowrap;
+}
+.node__mark[data-mark='new'] { background: var(--mk-new); }
+.node__mark[data-mark='updated'] { background: var(--mk-upd); }
+.node__mark[data-mark='archived'] { background: var(--mk-del); }
+.node__mark[data-mark='asked'] { background: var(--mk-ask); }
+
+/* ----------------------------------------------------------- chat drawer -- */
+
+/* Phone: a sheet over the roadmap; "Show roadmap" folds it to its header. */
+.chat {
+  position: fixed;
+  z-index: 45;
+  left: 0; right: 0; bottom: 0;
+  height: 86dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--panel-border);
+  border-bottom: 0;
+  border-radius: 18px 18px 0 0;
+  box-shadow: var(--shadow);
+  font-family: var(--font-ui);
+  animation: rise .18s ease-out;
+}
+.chat[data-peek='true'] { height: auto; }
+.chat[data-peek='true'] > :not(.chat__head) { display: none; }
+
+/* Desktop: a column beside the roadmap, which stays fully visible. */
+@media (min-width: 900px) {
+  .app--chat { padding-right: min(400px, 40vw); }
+  .app--chat .zoom { right: calc(min(400px, 40vw) + 12px); }
+  .chat {
+    top: 0; left: auto;
+    height: auto;
+    width: min(400px, 40vw);
+    border-radius: 0;
+    border-top: 0;
+    border-right: 0;
+    box-shadow: none;
+    animation: slide .18s ease-out;
+  }
+  .chat__peek { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .chat { animation: none; } }
+
+.chat__head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  padding-top: max(10px, env(safe-area-inset-top));
+  border-bottom: 1px solid var(--panel-border);
+}
+.chat__title { flex: 1; font-family: var(--font-canvas); font-size: 16px; }
+.chat__list { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.chat__intro p { font-size: 14px; color: var(--soft); margin: 0 0 10px; }
+.chat__example {
+  display: block; width: 100%; text-align: left; margin-bottom: 6px; padding: 8px 10px;
+  border-radius: 10px; border: 1px dashed var(--panel-border); background: transparent; color: var(--ink); font-size: 13.5px;
+}
+@media (hover: hover) { .chat__example:hover { border-color: var(--spine); } }
+
+.chat__msg { max-width: 92%; padding: 8px 11px; border-radius: 14px; font-size: 14px; line-height: 1.45; }
+.chat__msg p { margin: 0; white-space: pre-wrap; }
+.chat__msg--user { align-self: flex-end; background: var(--btn); color: var(--btn-text); border-bottom-right-radius: 4px; }
+.chat__msg--assistant { align-self: flex-start; background: var(--st-todo-bg); border-bottom-left-radius: 4px; }
+.chat__past { list-style: none; margin: 6px 0 0; padding: 0; font-size: 12.5px; display: grid; gap: 2px; }
+.chat__past li[data-state='declined'] { color: var(--soft); text-decoration: line-through; }
+.chat__past li[data-state='failed'] { color: var(--mk-del); }
+
+.chat__run, .chat__error, .chat__notice { font-size: 13.5px; }
+.chat__run p, .chat__error p, .chat__notice p { margin: 0 0 8px; }
+.chat__error { border-left: 3px solid var(--mk-del); padding-left: 10px; }
+.chat__notice { color: var(--soft); }
+.chat__unsaved { flex: none; margin: 0; padding: 4px 12px; font-size: 12px; color: var(--soft); }
+.chat__problem { margin: 10px 12px; }
+.chat__composer {
+  flex: none; display: flex; gap: 8px; align-items: flex-end; padding: 10px 12px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom)); border-top: 1px solid var(--panel-border);
+}
+.chat__composer .input { flex: 1; margin: 0; }
+
+/* The plan: one row per proposed change. */
+.plan { border: 1px solid var(--panel-border); border-radius: 12px; overflow: hidden; background: var(--panel); }
+.plan__head { display: flex; justify-content: space-between; gap: 8px; padding: 7px 10px; font-size: 12.5px; background: var(--st-todo-bg); color: var(--soft); }
+.plan__head strong { color: var(--ink); }
+.plan__rows { list-style: none; margin: 0; padding: 0; }
+.plan__rows li { display: flex; align-items: flex-start; gap: 6px; padding: 6px 10px; border-top: 1px solid var(--panel-border); }
+@media (hover: hover) { .plan__rows li:hover { background: var(--st-todo-bg); } }
+.plan__rows li[data-gone] { opacity: .55; }
+.plan__row { flex: 1; display: flex; align-items: flex-start; gap: 8px; font-size: 13.5px; cursor: pointer; min-height: 36px; }
+.plan__row input { width: 18px; height: 18px; margin-top: 2px; flex: none; }
+.plan__sym { flex: none; width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; font-weight: 700; color: var(--mk-text); }
+.plan__rows li[data-tone='add'] .plan__sym { background: var(--mk-new); }
+.plan__rows li[data-tone='upd'] .plan__sym { background: var(--mk-upd); }
+.plan__rows li[data-tone='del'] .plan__sym { background: var(--mk-del); }
+.plan__text small { display: block; color: var(--soft); font-size: 12px; }
+.plan__ask { margin: 8px; padding: 8px 10px; border: 1.5px dashed var(--mk-ask); border-radius: 10px; font-size: 13.5px; }
+.plan__ask p { margin: 0 0 6px; }
+.plan__hint, .plan__said { color: var(--soft); font-size: 12.5px; }
+.plan__dropped { margin: 6px 10px; font-size: 12.5px; color: var(--soft); }
+.plan .notice { margin: 8px 10px; }
+.plan__bar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-top: 1px solid var(--panel-border); font-size: 12.5px; }
+.plan__bar span { flex: 1; color: var(--soft); }
+.mini--danger { background: var(--mk-del); border-color: var(--mk-del); color: var(--mk-text); }

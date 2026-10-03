@@ -1,7 +1,7 @@
 import type { Draft, DraftResource, DraftStage, DraftTopic, Importance, ResourceKind } from './types'
 import { KINDS } from './types'
 import { isDesktop } from './platform'
-import type { Provider } from './db'
+import { DEFAULT_SETTINGS, loadSettings, type Provider } from './db'
 
 export interface CliStatus {
   installed: boolean
@@ -250,4 +250,23 @@ export function normalise(raw: unknown): Draft {
     }
   }
   return { title: text(r.title) || 'Untitled roadmap', description: text(r.description), stages }
+}
+
+/* ----------------------------------------------------------- roadmap chat -- */
+
+/** Who answers in the roadmap chat (the CLI chosen in Settings), and why it can't, if it can't. */
+export async function chatAi(): Promise<{ name: string; problem: string | null }> {
+  const [status, settings] = await Promise.all([aiStatus().catch(() => null), loadSettings().catch(() => DEFAULT_SETTINGS)])
+  const p = settings.ai_provider
+  const name = PROVIDER_LABEL[p]
+  const cli = status?.[p]
+  if (!cli?.installed) return { name, problem: `${CLI_LABEL[p]} isn't installed on this Mac. Install it and sign in, or pick the other one in Settings, then reopen this panel.` }
+  if (cli.logged_in === false) return { name, problem: `${CLI_LABEL[p]} is installed but signed out. Run \`${p === 'codex' ? 'codex login' : 'claude'}\` in a terminal and sign in.` }
+  return { name, problem: null }
+}
+
+/** One chat turn with the chosen CLI: it may read the web, and must answer in `schema`. */
+export async function runChat(job: string, prompt: string, schema: object, onProgress: (p: AiProgress) => void): Promise<unknown> {
+  const s = await loadSettings().catch(() => DEFAULT_SETTINGS)
+  return runAi<unknown>(job, prompt, schema, { provider: s.ai_provider, model: s.ai_model, maxTurns: 30, web: true }, onProgress)
 }

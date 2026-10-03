@@ -2,6 +2,7 @@ import Database from '@tauri-apps/plugin-sql'
 import type {
   Bundle, Draft, ItemFile, ItemLink, Resource, Roadmap, StageRow, Status, Topic, TopicResource,
 } from './types'
+import type { ChatMessage } from './chat'
 
 export type ItemTable = 'topics' | 'resources'
 export type Provider = 'claude' | 'codex'
@@ -306,4 +307,47 @@ export async function saveDraft(draft: Draft): Promise<string> {
     throw e
   }
   return roadmapId
+}
+
+/* --------------------------------------------------------- roadmap chat -- */
+
+// Column names below come from this file, never from input.
+const STAGE_COLUMNS = new Set(['title', 'pace', 'description', 'milestone', 'position'])
+
+export async function insertStage(s: StageRow) {
+  await run('INSERT INTO stages (id, roadmap_id, title, pace, description, milestone, position) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+    [s.id, s.roadmap_id, s.title, s.pace, s.description, s.milestone, s.position])
+}
+export async function updateStage(id: string, patch: Partial<Pick<StageRow, 'title' | 'pace' | 'description' | 'milestone' | 'position'>>) {
+  const cols = Object.keys(patch).filter((c) => STAGE_COLUMNS.has(c))
+  if (!cols.length) return
+  await run(`UPDATE stages SET ${cols.map((c, i) => `${c} = $${i + 1}`).join(', ')} WHERE id = $${cols.length + 1}`,
+    [...cols.map((c) => (patch as Record<string, unknown>)[c] ?? null), id])
+}
+export async function insertTopic(t: Topic) {
+  await run('INSERT INTO topics (id, roadmap_id, stage_id, title, description, importance, position) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+    [t.id, t.roadmap_id, t.stage_id, t.title, t.description, t.importance, t.position])
+}
+export async function insertResource(r: Resource) {
+  await run(`INSERT INTO resources (id, roadmap_id, stage_id, kind, title, provider, url, cost, duration, description, importance, position)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+    [r.id, r.roadmap_id, r.stage_id, r.kind, r.title, r.provider, r.url, r.cost, r.duration, r.description, r.importance, r.position])
+}
+
+export async function loadChat(roadmapId: string): Promise<ChatMessage[]> {
+  const row = await one<{ messages: string }>('SELECT messages FROM roadmap_chats WHERE roadmap_id = $1', [roadmapId])
+  try {
+    const parsed: unknown = row ? JSON.parse(row.messages) : []
+    return Array.isArray(parsed) ? (parsed as ChatMessage[]) : []
+  } catch {
+    return []
+  }
+}
+export async function saveChat(roadmapId: string, messages: ChatMessage[]) {
+  await run(`INSERT INTO roadmap_chats (roadmap_id, messages, updated_at) VALUES ($1, $2, $3)
+     ON CONFLICT (roadmap_id) DO UPDATE SET messages = excluded.messages, updated_at = excluded.updated_at`,
+    [roadmapId, JSON.stringify(messages.slice(-200)), now()])
+}
+export async function clearChat(roadmapId: string) {
+  await run('DELETE FROM roadmap_chats WHERE roadmap_id = $1', [roadmapId])
 }
