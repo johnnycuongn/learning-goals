@@ -28,7 +28,7 @@ export const BRIEFING_SCHEMA = {
 const DAY = 86_400_000
 const daysAgo = (iso: string | null) => (iso ? Math.round((Date.now() - new Date(iso).getTime()) / DAY) : null)
 
-/** Everything Claude needs to choose a focus, and nothing it doesn't (no notes, no files). */
+/** Everything the AI needs to choose a focus, and nothing it doesn't (no notes, no files). */
 export function summarise(d: DashboardData) {
   const live = new Set(d.roadmaps.map((r) => r.id))
   const roadmapTitle = new Map(d.roadmaps.map((r) => [r.id, r.title]))
@@ -122,7 +122,7 @@ export async function generateBriefing(settings?: Settings): Promise<Briefing | 
     const data = await loadDashboard()
     if (!data.roadmaps.length) return null
     const known = new Set([...data.topics, ...data.resources].map((i) => i.id))
-    const raw = await runAi<BriefingContent>(newKey('brief'), briefingPrompt(summarise(data)), BRIEFING_SCHEMA, { model: s.ai_model, maxTurns: 4, web: false })
+    const raw = await runAi<BriefingContent>(newKey('brief'), briefingPrompt(summarise(data)), BRIEFING_SCHEMA, { provider: s.ai_provider, model: s.ai_model, maxTurns: 4, web: false })
     const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
     const content: BriefingContent = {
       headline: text(raw?.headline),
@@ -131,8 +131,8 @@ export async function generateBriefing(settings?: Settings): Promise<Briefing | 
       })).filter((f) => f.title),
       notes: (Array.isArray(raw?.notes) ? raw.notes : []).map(text).filter(Boolean).slice(0, 3),
     }
-    if (!content.focus.length) throw new Error('Claude returned an empty briefing.')
-    await saveBriefing(content, s.ai_model)
+    if (!content.focus.length) throw new Error('The AI returned an empty briefing.')
+    await saveBriefing(content, s.ai_provider, s.ai_model)
     return await loadBriefing()
   } finally {
     running = false

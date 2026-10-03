@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "My Roadmaps",
+  "productName": "Learning Goals",
   "version": "0.1.0",
-  "identifier": "com.johnnynguyen.myroadmaps",
+  "identifier": "com.johnnynguyen.learninggoals",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -11,13 +11,53 @@
   },
   "app": {
     "windows": [
-      { "title": "My Roadmaps", "width": 1360, "height": 880, "minWidth": 380, "minHeight": 560 }
+      {
+        "label": "main",
+        "title": "Learning Goals",
+        "width": 1360,
+        "height": 880,
+        "minWidth": 380,
+        "minHeight": 560
+      }
     ],
-    "security": { "csp": null }
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
+    }
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg"],
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
-  }
+    "targets": [
+      "app",
+      "dmg"
+    ],
+    "category": "Education",
+    "shortDescription": "Learning roadmaps, researched by your own AI subscription",
+    "copyright": "\u00a9 2026 Johnny Nguyen",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "11.0",
+      "signingIdentity": "-",
+      "dmg": {
+        "windowSize": {
+          "width": 660,
+          "height": 400
+        },
+        "appPosition": {
+          "x": 180,
+          "y": 190
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 190
+        }
+      }
+    }
+  },
+  "mainBinaryName": "learning-goals"
 }

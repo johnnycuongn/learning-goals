@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { aiStatus, cancelAi, createPrompt, newKey, revisePrompt, runResearch, type AiProgress, type AiStatus } from '../lib/ai'
-import { loadSettings, saveDraft } from '../lib/db'
+import { aiStatus, cancelAi, CLI_LABEL, createPrompt, newKey, PROVIDER_LABEL, revisePrompt, runResearch, type AiProgress, type AiStatus } from '../lib/ai'
+import { loadSettings, saveDraft, type Provider } from '../lib/db'
 import { go } from '../lib/router'
 import { IMPORTANCE_LABEL, KIND_LABEL, type Draft, type DraftStage } from '../lib/types'
 import { openExternal } from '../lib/platform'
 
-const DRAFT_KEY = 'my-roadmaps:draft'
+const DRAFT_KEY = 'learning-goals:draft'
 const readDraft = (): Draft | null => {
   try { return JSON.parse(localStorage.getItem(DRAFT_KEY) ?? 'null') } catch { return null }
 }
@@ -17,7 +17,9 @@ export function NewRoadmap({ onError }: { onError: (m: string) => void }) {
   const [background, setBackground] = useState('')
   const [deep, setDeep] = useState(false)
   const [model, setModel] = useState('')
-  useEffect(() => { loadSettings().then((x) => setModel(x.ai_model)).catch(() => undefined) }, [])
+  const [provider, setProvider] = useState<Provider>('claude')
+  useEffect(() => { loadSettings().then((x) => { setModel(x.ai_model); setProvider(x.ai_provider) }).catch(() => undefined) }, [])
+  const ai = PROVIDER_LABEL[provider]
   const [job, setJob] = useState<string | null>(null)
   const [log, setLog] = useState<AiProgress[]>([])
   const [ask, setAsk] = useState('')
@@ -42,7 +44,7 @@ export function NewRoadmap({ onError }: { onError: (m: string) => void }) {
     started.current = Date.now()
     setElapsed(0); setLog([]); setJob(id)
     try {
-      setDraft(await runResearch(id, prompt, { deep, model }, (p) => setLog((l) => [...l.slice(-40), p])))
+      setDraft(await runResearch(id, prompt, { deep, provider, model }, (p) => setLog((l) => [...l.slice(-40), p])))
       setAsk('')
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -63,7 +65,7 @@ export function NewRoadmap({ onError }: { onError: (m: string) => void }) {
     return (
       <Page title={draft ? 'Revising…' : 'Researching…'}>
         <div className="card">
-          <p className="lede">Claude is searching the web on this Mac. {deep ? 'Deep research usually takes 5 to 15 minutes.' : 'This usually takes 2 to 5 minutes.'} <strong>{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}</strong></p>
+          <p className="lede">{ai} is searching the web on this Mac. {deep ? 'Deep research usually takes 5 to 15 minutes.' : 'This usually takes 2 to 5 minutes.'} <strong>{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}</strong></p>
           <ol className="log" aria-live="polite">
             {log.length === 0 && <li className="empty">Planning the roadmap…</li>}
             {log.map((p, i) => <li key={i}><span className="pill">{p.kind === 'search' ? 'Search' : 'Read'}</span> {p.text}</li>)}
@@ -76,7 +78,8 @@ export function NewRoadmap({ onError }: { onError: (m: string) => void }) {
 
   /* ------------------------------------------------------------ brief -- */
   if (!draft) {
-    const ready = status?.installed && status.logged_in !== false
+    const cli = status?.[provider]
+    const ready = cli?.installed && cli.logged_in !== false
     return (
       <Page title="New roadmap">
         <form className="card" onSubmit={(e) => { e.preventDefault(); if (goal.trim()) void research(createPrompt(goal.trim(), background.trim(), deep)) }}>
@@ -90,10 +93,10 @@ export function NewRoadmap({ onError }: { onError: (m: string) => void }) {
           </label>
           <label className="check">
             <input type="checkbox" checked={deep} onChange={(e) => setDeep(e.target.checked)} />
-            <span><strong>Deep research.</strong> Compares more candidates and opens them to check they're current. Slower, and uses more of your Claude plan's allowance.</span>
+            <span><strong>Deep research.</strong> Compares more candidates and opens them to check they're current. Slower, and uses more of your {ai} plan's allowance.</span>
           </label>
-          <p className="empty" style={{ marginBottom: 12 }}>Model: <strong>{model || 'your Claude Code default'}</strong>. <button type="button" className="linkish" style={{ display: 'inline', minHeight: 0 }} onClick={() => go({ page: 'account' })}>Change in Account</button></p>
-          <AiBadge status={status} />
+          <p className="empty" style={{ marginBottom: 12 }}>Using <strong>{CLI_LABEL[provider]}</strong>, model <strong>{model || 'its default'}</strong>. <button type="button" className="linkish" style={{ display: 'inline', minHeight: 0 }} onClick={() => go({ page: 'settings' })}>Change in Settings</button></p>
+          <AiBadge status={status} provider={provider} />
           <div className="dialog__actions">
             <button type="submit" className="btn" disabled={!ready}>Research it</button>
             <button type="button" className="btn btn--ghost" onClick={() => setDraft({ title: 'Untitled roadmap', description: '', stages: [blankStage()] })}>Start blank instead</button>
@@ -143,29 +146,29 @@ export function NewRoadmap({ onError }: { onError: (m: string) => void }) {
   }
   const topicTitle = new Map(draft.stages.flatMap((s) => s.topics.map((t) => [t.key, t.title] as const)))
   const counts = { t: draft.stages.reduce((n, s) => n + s.topics.length, 0), r: draft.stages.reduce((n, s) => n + s.resources.length, 0) }
-  const canAi = status?.installed && status.logged_in !== false
+  const canAi = status?.[provider]?.installed && status[provider].logged_in !== false
 
   return (
     <Page title="Review your roadmap">
       <div className="card">
-        <p className="lede">Nothing is saved yet. Remove, reorder or move anything, ask Claude for changes, then save. <strong>{draft.stages.length} stages · {counts.t} topics · {counts.r} resources</strong></p>
+        <p className="lede">Nothing is saved yet. Remove, reorder or move anything, ask {ai} for changes, then save. <strong>{draft.stages.length} stages · {counts.t} topics · {counts.r} resources</strong></p>
         <label className="field"><span>Title</span><input className="input" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></label>
         <label className="field"><span>Description</span><textarea className="input input--area" rows={2} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></label>
         {uncovered.length > 0 && (
-          <p className="notice notice--warn">No resource covers: {uncovered.slice(0, 6).join(', ')}{uncovered.length > 6 ? ` and ${uncovered.length - 6} more` : ''}. You can save anyway, or ask Claude to find resources for them.</p>
+          <p className="notice notice--warn">No resource covers: {uncovered.slice(0, 6).join(', ')}{uncovered.length > 6 ? ` and ${uncovered.length - 6} more` : ''}. You can save anyway, or ask {ai} to find resources for them.</p>
         )}
       </div>
 
       <form className="card" onSubmit={(e) => { e.preventDefault(); if (ask.trim()) void research(revisePrompt(draft, ask.trim())) }}>
         <label className="field">
-          <span>Ask Claude to change it</span>
+          <span>Ask {ai} to change it</span>
           <textarea className="input input--area" rows={2} value={ask} onChange={(e) => setAsk(e.target.value)} placeholder="e.g. Add a stage on streaming with Kafka. Swap paid courses for free ones where you can." />
         </label>
         <div className="dialog__actions">
           <button type="submit" className="btn" disabled={!canAi || !ask.trim()}>Revise</button>
           <button type="button" className="btn btn--ghost" disabled={!canAi} onClick={() => void research(revisePrompt(draft, 'Regenerate the whole roadmap from scratch for the same goal. Fix weak stage ordering, thin stages, outdated resources and any topic without a good resource. You may change keys.'))}>Regenerate everything</button>
         </div>
-        {!canAi && <AiBadge status={status} />}
+        {!canAi && <AiBadge status={status} provider={provider} />}
       </form>
 
       {draft.stages.map((s, si) => (
@@ -261,9 +264,12 @@ function RowTools({ stages, si, i, n, onMove, onStage, onDelete }: {
   )
 }
 
-export function AiBadge({ status }: { status: AiStatus | null }) {
-  if (!status) return <p className="notice notice--warn">Checking for Claude Code…</p>
-  if (!status.installed) return <p className="notice notice--warn">Claude Code isn't installed on this Mac, so research can't run. Install it, run <code>claude</code> once to sign in, then reopen this screen. You can still build a roadmap by hand.</p>
-  if (status.logged_in === false) return <p className="notice notice--warn">Claude Code is installed but signed out. Run <code>claude</code> in a terminal and sign in with your Claude account.</p>
-  return <p className="notice notice--ok">Research runs through Claude Code on this Mac{status.account ? `, signed in as ${status.account}` : ''}. No API key, nothing sent to a server of ours.</p>
+export function AiBadge({ status, provider }: { status: AiStatus | null; provider: Provider }) {
+  const name = CLI_LABEL[provider]
+  const cli = status?.[provider]
+  const signIn = provider === 'claude' ? 'claude' : 'codex login'
+  if (!status || !cli) return <p className="notice notice--warn">Checking for {name}…</p>
+  if (!cli.installed) return <p className="notice notice--warn">{name} isn't installed on this Mac, so research can't run. Install it, run <code>{signIn}</code> once to sign in, then reopen this screen. You can still build a roadmap by hand. See SETUP.md for the two-minute install.</p>
+  if (cli.logged_in === false) return <p className="notice notice--warn">{name} is installed but signed out. Run <code>{signIn}</code> in a terminal and sign in with your {PROVIDER_LABEL[provider] === 'Codex' ? 'ChatGPT' : 'Claude'} account.</p>
+  return <p className="notice notice--ok">Research runs through {name} on this Mac{cli.account ? ` (${cli.account})` : ''}. No API key, and nothing goes to a server of ours.</p>
 }

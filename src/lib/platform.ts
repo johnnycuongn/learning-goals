@@ -1,7 +1,7 @@
 /**
- * One codebase, two shells. The desktop app (Tauri) can edit and can run the
- * AI, because the AI is the Claude Code CLI on this machine. The web build is a
- * viewer: same data, read-only, and no AI configuration at all.
+ * Learning Goals only runs as the desktop app: the database is a file on this
+ * Mac and the AI is a CLI on this Mac. Opened in a plain browser (say, with
+ * `npm run dev`), it shows a note instead of half-working.
  */
 export const isDesktop = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 export const canEdit = isDesktop

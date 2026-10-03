@@ -7,12 +7,10 @@ node_modules/
 dist/
 dist-ssr/
 *.local
-.vercel/
 
 # secrets
 .env
 .env.*
-!.env.example
 .dev.vars
 *.pem
 *service-account*.json
@@ -28,13 +26,10 @@ npm-debug.log*
 # local test artefacts
 .playwright-mcp/
 shot-*.png
-.vercel
-.env*
-!.env.example
 
-# supabase cli scratch
-supabase/.temp/
-supabase/.branches/
 
 # bridge session (credential material)
 .bridge/
+
+# Rust build output (also in src-tauri/.gitignore)
+src-tauri/target/

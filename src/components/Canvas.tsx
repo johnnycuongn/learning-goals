@@ -19,7 +19,7 @@ interface Props {
   onOpen: (id: string) => void
   /** False on a shared link whose owner kept their progress private. */
   showStatus?: boolean
-  /** Absent in the read-only web viewer. */
+  /** Absent where statuses should not be changed from the canvas. */
   onCycle?: (id: string) => void
   /** Reports the stage nearest the middle of the viewport, for the mini-map. */
   onVisibleStage: (stageId: string) => void

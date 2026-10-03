@@ -1,5 +1,0 @@
-# The web viewer needs none of the desktop shell, and target/ is gigabytes.
-src-tauri
-supabase
-scripts
-README.md

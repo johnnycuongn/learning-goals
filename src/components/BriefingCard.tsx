@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { BRIEFING_EVENT, generateBriefing, isGenerating } from '../lib/briefing'
 import { loadBriefing, type Briefing } from '../lib/db'
 import { isDesktop } from '../lib/platform'
+import { PROVIDER_LABEL } from '../lib/ai'
 
 interface Props {
   /** Where a focus item lives, so its title can link to it. */
@@ -47,7 +48,7 @@ export function BriefingCard({ locate, hasRoadmaps, onError }: Props) {
         <div>
           <h2 id="briefing-title" className="briefing__title">This week</h2>
           <p className="briefing__when">
-            {busy ? 'Claude is reading your progress…' : briefing ? `Written by Claude ${when(briefing.generated_at)}` : 'Not written yet'}
+            {busy ? 'Reading your progress…' : briefing ? `Written by ${PROVIDER_LABEL[briefing.provider] ?? 'AI'} ${when(briefing.generated_at)}` : 'Not written yet'}
           </p>
         </div>
         {isDesktop && (
@@ -75,9 +76,7 @@ export function BriefingCard({ locate, hasRoadmaps, onError }: Props) {
         </>
       ) : (
         <p className="empty">
-          {isDesktop
-            ? 'Too much on and not enough week? Claude will look at what you have finished lately and what is in progress, and pick one to three things to focus on.'
-            : 'The desktop app writes this each morning. Nothing has been generated yet.'}
+          Too much on and not enough week? Your AI will look at what you have finished lately and what is in progress, and pick one to three things to focus on.
         </p>
       )}
     </section>

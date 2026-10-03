@@ -1,6 +1,7 @@
 /**
- * Draws the app icon at every size the PWA needs, straight from the Lagoon
- * tokens, and writes real PNGs with no image dependency.
+ * Draws the app icon straight from the Lagoon tokens, as a real PNG with no
+ * image dependency. `npm run icons` then has Tauri cut every size the Mac,
+ * Windows and Linux bundles need from src-tauri/app-icon.png.
  *
  * The mark is the roadmap itself: a spine running left to right with three
  * stage nodes on it and two topics branching off.
@@ -160,17 +161,8 @@ function render(size, { maskable = false } = {}) {
 
 mkdirSync('public', { recursive: true })
 
-const files = [
-  ['public/icon-192.png', render(192)],
-  ['public/icon-512.png', render(512)],
-  ['public/icon-maskable-512.png', render(512, { maskable: true })],
-  // Apple's icon must be fully opaque, so it uses the full-bleed variant.
-  ['public/apple-touch-icon.png', render(180, { maskable: true })],
-]
-for (const [path, buf] of files) {
-  writeFileSync(path, buf)
-  console.log(`${path}  ${(buf.length / 1024).toFixed(1)} KB`)
-}
+writeFileSync('src-tauri/app-icon.png', render(1024))
+console.log('src-tauri/app-icon.png')
 // A crisp vector favicon for browser tabs.
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <rect width="100" height="100" rx="21" fill="#0D9488"/>

@@ -5,7 +5,6 @@ import { canEdit } from '../lib/platform'
 import { go } from '../lib/router'
 import { STATUS_LABEL, type Bundle, type NodeInfo, type Status, type View } from '../lib/types'
 import { Canvas } from '../components/Canvas'
-import { ShareDialog } from '../components/ShareDialog'
 import { ItemPanel } from '../components/ItemPanel'
 
 interface Props { id: string; view: View; target: string | null; onError: (m: string) => void }
@@ -19,7 +18,6 @@ export function RoadmapPage({ id, view, target, onError }: Props) {
   const [scrollTarget, setScrollTarget] = useState<{ id: string; nonce: number } | null>(null)
   const [adding, setAdding] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [sharing, setSharing] = useState(false)
 
   const reload = useCallback(async () => {
     try { setBundle(await api.loadBundle(id)) } catch (e) { onError(e instanceof Error ? e.message : String(e)) }
@@ -59,7 +57,6 @@ export function RoadmapPage({ id, view, target, onError }: Props) {
           {archivedCount > 0 && (
             <label className="toggle"><input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> Archived ({archivedCount})</label>
           )}
-          {canEdit && <button type="button" className="iconbtn" onClick={() => setSharing(true)}>Share</button>}
           {canEdit && <button type="button" className="iconbtn" onClick={() => setAdding(true)}>+ Add</button>}
           {canEdit && (confirmDelete ? (
             <>
@@ -103,7 +100,6 @@ export function RoadmapPage({ id, view, target, onError }: Props) {
           onNavigate={(t) => open(t, bundle.resources.some((r) => r.id === t) ? 'resources' : bundle.topics.some((x) => x.id === t) ? 'topics' : view)} />
       )}
 
-      {sharing && <ShareDialog roadmapId={id} onClose={() => setSharing(false)} onError={onError} />}
 
       {adding && (
         <AddDialog bundle={bundle} view={view} onClose={() => setAdding(false)} onError={onError}

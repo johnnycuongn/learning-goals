@@ -1,12 +1,37 @@
 import type { Draft, DraftResource, DraftStage, DraftTopic, Importance, ResourceKind } from './types'
 import { KINDS } from './types'
 import { isDesktop } from './platform'
+import type { Provider } from './db'
 
-export interface AiStatus {
+export interface CliStatus {
   installed: boolean
   logged_in: boolean | null
   account: string | null
   path: string | null
+}
+export interface AiStatus {
+  claude: CliStatus
+  codex: CliStatus
+}
+
+export const PROVIDER_LABEL: Record<Provider, string> = { claude: 'Claude', codex: 'Codex' }
+export const CLI_LABEL: Record<Provider, string> = { claude: 'Claude Code', codex: 'Codex' }
+
+/**
+ * OpenAI's structured outputs (Codex) only accept schemas where every object
+ * closes its property list and requires all of it. Claude accepts the same, so
+ * both get the strict form.
+ */
+export function strict<T>(schema: T): T {
+  if (Array.isArray(schema)) return schema.map(strict) as T
+  if (!schema || typeof schema !== 'object') return schema
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(schema)) out[k] = strict(v)
+  if (out.type === 'object' && out.properties) {
+    out.additionalProperties = false
+    out.required = Object.keys(out.properties as object)
+  }
+  return out as T
 }
 export interface AiProgress {
   job: string
@@ -131,7 +156,7 @@ export async function runAi<T>(
   job: string,
   prompt: string,
   schema: object,
-  opts: { model: string; maxTurns: number; web: boolean },
+  opts: { provider: Provider; model: string; maxTurns: number; web: boolean },
   onProgress?: (p: AiProgress) => void,
 ): Promise<T> {
   const { invoke } = await import('@tauri-apps/api/core')
@@ -141,7 +166,7 @@ export async function runAi<T>(
   })
   try {
     return await invoke<T>('ai_run', {
-      job, prompt, schema: JSON.stringify(schema), model: opts.model || null, maxTurns: opts.maxTurns, web: opts.web,
+      job, prompt, schema: JSON.stringify(strict(schema)), provider: opts.provider, model: opts.model || null, maxTurns: opts.maxTurns, web: opts.web,
     })
   } finally {
     stop()
@@ -151,10 +176,10 @@ export async function runAi<T>(
 export async function runResearch(
   job: string,
   prompt: string,
-  opts: { deep: boolean; model: string },
+  opts: { deep: boolean; provider: Provider; model: string },
   onProgress: (p: AiProgress) => void,
 ): Promise<Draft> {
-  return normalise(await runAi<unknown>(job, prompt, SCHEMA, { model: opts.model, maxTurns: opts.deep ? 90 : 40, web: true }, onProgress))
+  return normalise(await runAi<unknown>(job, prompt, SCHEMA, { provider: opts.provider, model: opts.model, maxTurns: opts.deep ? 90 : 40, web: true }, onProgress))
 }
 
 /* -------------------------------------------------------------- normalise -- */

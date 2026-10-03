@@ -3,7 +3,7 @@ import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import { openExternal } from '../lib/platform'
 
-/** Notes are the person's own, but still sanitised: they sync to a web viewer. */
+/** Notes are the person's own, but still sanitised: pasted HTML should never run script. */
 export function Markdown({ source }: { source: string }) {
   const html = useMemo(
     () => DOMPurify.sanitize(marked.parse(source, { async: false, gfm: true, breaks: true }) as string),

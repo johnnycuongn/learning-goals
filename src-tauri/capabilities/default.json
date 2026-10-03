@@ -1,7 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The main window: core APIs plus opening links in the system browser",
+  "description": "The main window: core APIs, the local SQLite database, and opening links in the system browser",
   "windows": ["main"],
-  "permissions": ["core:default", "opener:default"]
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "sql:allow-load",
+    "sql:allow-select",
+    "sql:allow-execute"
+  ]
 }

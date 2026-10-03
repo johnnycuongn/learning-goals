@@ -51,7 +51,7 @@ export function Dashboard({ onError }: { onError: (m: string) => void }) {
   return (
     <div className="page">
       <header className="pagehead">
-        <h1>My roadmaps</h1>
+        <h1>Learning Goals</h1>
         {canEdit && <button type="button" className="btn" onClick={() => go({ page: 'new' })}>+ New roadmap</button>}
       </header>
       <main className="page__body">

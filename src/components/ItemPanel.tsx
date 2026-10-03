@@ -241,7 +241,7 @@ export function ItemPanel({ bundle, targetId, onClose, onNavigate, onChanged, on
         <ul className="linklist">
           {extras.files.map((f) => (
             <li key={f.id} className="linkrow">
-              <button type="button" onClick={() => void api.fileUrl(f).then(openExternal).catch((e) => onError(String(e.message ?? e)))}>
+              <button type="button" onClick={() => void api.openFile(f).catch((e) => onError(String(e.message ?? e)))}>
                 <span className="linklist__title">{f.name}<span className="linklist__sub">{(f.size_bytes / 1024).toFixed(0)} KB</span></span>↗
               </button>
               {canEdit && <span className="linkrow__actions"><button type="button" className="mini" title="Remove" onClick={() => void run(() => api.removeFile(f), true)}>✕</button></span>}
